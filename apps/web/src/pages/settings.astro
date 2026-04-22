@@ -1,0 +1,25 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { TokenManager } from "../components/TokenManager";
+import { DangerZone } from "../components/DangerZone";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+
+const user = Astro.locals.user;
+---
+
+<Layout>
+  <h1 class="text-2xl font-bold text-white mb-6">Settings</h1>
+  <div class="max-w-lg space-y-10">
+    <section>
+      <h2 class="text-lg font-semibold text-white mb-4">API Tokens (MCP)</h2>
+      <TokenManager client:load />
+    </section>
+    <section>
+      <h2 class="text-lg font-semibold text-white mb-4">Danger Zone</h2>
+      <DangerZone userEmail={user.email} client:load />
+    </section>
+  </div>
+</Layout>

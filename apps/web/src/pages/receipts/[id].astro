@@ -1,0 +1,18 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { ReceiptReview } from "../../components/ReceiptReview";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+---
+
+<Layout>
+  <div class="mb-4">
+    <a href="/receipts" class="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200">&larr; Back to Receipts</a>
+  </div>
+  <h1 class="text-2xl font-bold text-white mb-6">Review Receipt</h1>
+  <ReceiptReview receiptId={id!} client:load />
+</Layout>

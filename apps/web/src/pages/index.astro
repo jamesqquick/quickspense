@@ -1,0 +1,506 @@
+---
+import LandingLayout from "../layouts/LandingLayout.astro";
+---
+
+<LandingLayout>
+    <!-- Hero Section -->
+    <section class="relative pt-32 pb-20 overflow-hidden">
+      <!-- Gradient orbs for visual depth -->
+      <div class="absolute top-20 left-1/4 w-96 h-96 bg-accent-500/20 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl"></div>
+
+      <div class="relative max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <!-- Left: Copy -->
+          <div>
+            <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 mb-6">
+              <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              <span class="text-xs text-slate-300 font-medium">AI-powered receipt scanning</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight">
+              Snap a receipt.<br />
+              <span class="text-primary-400">Track every expense.</span>
+            </h1>
+            <p class="mt-6 text-lg text-slate-300 leading-relaxed max-w-lg">
+              Upload a receipt photo and AI extracts the merchant, amount, date, and category in seconds. Review, edit, and finalize -- all running on Cloudflare's edge.
+            </p>
+            <div class="mt-8 flex flex-col sm:flex-row gap-4">
+              <a href="/register" class="inline-flex items-center justify-center bg-accent-500 hover:bg-accent-600 text-white px-6 py-3 rounded-xl font-semibold transition-colors duration-200 cursor-pointer">
+                Get Started Free
+              </a>
+              <a href="#how-it-works" class="inline-flex items-center justify-center border border-white/20 hover:border-white/40 text-white px-6 py-3 rounded-xl font-semibold transition-colors duration-200 cursor-pointer">
+                See How It Works
+              </a>
+            </div>
+          </div>
+
+          <!-- Right: Animated mockup -->
+          <div class="relative" aria-hidden="true">
+            <div class="glass-strong rounded-2xl p-6 space-y-4 mockup-container">
+              <!-- Step 1: Receipt image slides in -->
+              <div class="mockup-step mockup-step-1">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <span class="text-sm font-medium text-white">receipt_lunch.jpg</span>
+                  <span class="text-xs text-slate-400 ml-auto">2.4 MB</span>
+                </div>
+                <div class="bg-white/5 rounded-xl h-32 flex items-center justify-center border border-white/10">
+                  <div class="text-center">
+                    <svg class="w-10 h-10 text-slate-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="text-xs text-slate-500 mt-1">Receipt Image</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 2: Processing spinner -->
+              <div class="mockup-step mockup-step-2">
+                <div class="flex items-center gap-3 py-2">
+                  <div class="mockup-spinner w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full"></div>
+                  <span class="text-sm text-primary-400 font-medium">AI is extracting data...</span>
+                </div>
+                <div class="h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
+                  <div class="mockup-progress h-full bg-gradient-to-r from-primary-500 to-accent-500 rounded-full"></div>
+                </div>
+              </div>
+
+              <!-- Step 3: Extracted data -->
+              <div class="mockup-step mockup-step-3">
+                <div class="flex items-center gap-2 mb-3">
+                  <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span class="text-sm font-medium text-green-400">Data extracted</span>
+                  <span class="text-xs text-slate-400 ml-auto">Confidence: 94%</span>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex justify-between items-center py-1.5 border-b border-white/5">
+                    <span class="text-xs text-slate-400">Merchant</span>
+                    <span class="text-sm text-white font-medium">Urban Kitchen</span>
+                  </div>
+                  <div class="flex justify-between items-center py-1.5 border-b border-white/5">
+                    <span class="text-xs text-slate-400">Total</span>
+                    <span class="text-sm text-primary-400 font-bold">$47.83</span>
+                  </div>
+                  <div class="flex justify-between items-center py-1.5 border-b border-white/5">
+                    <span class="text-xs text-slate-400">Date</span>
+                    <span class="text-sm text-white font-medium">2025-04-18</span>
+                  </div>
+                  <div class="flex justify-between items-center py-1.5">
+                    <span class="text-xs text-slate-400">Category</span>
+                    <span class="text-xs bg-accent-500/20 text-accent-400 px-2 py-0.5 rounded-full font-medium">Dining</span>
+                  </div>
+                </div>
+                <!-- Confidence bar -->
+                <div class="mt-3">
+                  <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div class="mockup-confidence h-full bg-green-400 rounded-full" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="border-y border-white/10 py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div class="text-center">
+            <p class="text-3xl font-bold text-primary-400">&lt; 30s</p>
+            <p class="text-sm text-slate-400 mt-1">AI processing time</p>
+          </div>
+          <div class="text-center">
+            <p class="text-3xl font-bold text-primary-400">Zero</p>
+            <p class="text-sm text-slate-400 mt-1">Manual data entry</p>
+          </div>
+          <div class="text-center">
+            <p class="text-3xl font-bold text-primary-400">100%</p>
+            <p class="text-sm text-slate-400 mt-1">On Cloudflare's edge</p>
+          </div>
+          <div class="text-center">
+            <p class="text-3xl font-bold text-primary-400">MCP</p>
+            <p class="text-sm text-slate-400 mt-1">Ready for AI agents</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="py-24">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-16">
+          <p class="text-sm font-semibold text-primary-400 uppercase tracking-wider mb-2">Features</p>
+          <h2 class="text-3xl sm:text-4xl font-bold text-white">Everything you need to track expenses</h2>
+          <p class="mt-4 text-slate-400 max-w-2xl mx-auto">From receipt upload to expense reports, Quickspense handles the entire workflow so you can focus on what matters.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Feature 1: Receipt Upload -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">Receipt Upload</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">Drag and drop receipt photos. Supports JPEG, PNG, and WEBP up to 10MB. Stored securely in Cloudflare R2.</p>
+          </div>
+
+          <!-- Feature 2: AI-Powered OCR -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-accent-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">AI-Powered OCR</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">Two-stage AI pipeline using Workers AI. Vision model reads the receipt, then a language model extracts structured data.</p>
+          </div>
+
+          <!-- Feature 3: Human-in-the-Loop Review -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">Human-in-the-Loop Review</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">AI extracts the data, you verify it. Edit any field, see confidence scores, and finalize when you're ready.</p>
+          </div>
+
+          <!-- Feature 4: Expense Tracking -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">Expense Tracking & Categories</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">Organize expenses with custom categories. Filter by date range, category, or amount. Dashboard with spending breakdowns.</p>
+          </div>
+
+          <!-- Feature 5: CSV Export -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">CSV Export</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">Export your expenses to CSV with any combination of date and category filters. Ready for spreadsheets or accounting software.</p>
+          </div>
+
+          <!-- Feature 6: MCP Integration -->
+          <div class="glass rounded-2xl p-6 hover:border-white/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">MCP Integration</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">Full Model Context Protocol server. Connect Claude Desktop or any MCP client to manage expenses via AI conversation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-24 border-t border-white/10">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-16">
+          <p class="text-sm font-semibold text-primary-400 uppercase tracking-wider mb-2">How It Works</p>
+          <h2 class="text-3xl sm:text-4xl font-bold text-white">Three steps to expense freedom</h2>
+          <p class="mt-4 text-slate-400 max-w-2xl mx-auto">Stop typing expense data manually. Let AI handle the tedious work.</p>
+        </div>
+
+        <div class="space-y-16">
+          <!-- Step 1 -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-500/20 text-primary-400 font-bold text-lg mb-4">1</div>
+              <h3 class="text-2xl font-bold text-white mb-3">Upload a receipt photo</h3>
+              <p class="text-slate-400 leading-relaxed">Drag and drop a receipt image or snap a photo. Supports JPEG, PNG, and WEBP formats up to 10MB. Your file is stored securely in Cloudflare R2 with zero egress fees.</p>
+            </div>
+            <div class="glass rounded-2xl p-6">
+              <div class="border-2 border-dashed border-primary-500/30 rounded-xl p-8 text-center">
+                <svg class="w-12 h-12 text-primary-400/60 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <p class="text-sm text-slate-300 font-medium">Drop a receipt image here</p>
+                <p class="text-xs text-slate-500 mt-1">JPEG, PNG, or WEBP up to 10MB</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="lg:order-2">
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500/20 text-accent-400 font-bold text-lg mb-4">2</div>
+              <h3 class="text-2xl font-bold text-white mb-3">AI extracts the data</h3>
+              <p class="text-slate-400 leading-relaxed">A two-stage AI pipeline runs entirely on Cloudflare Workers AI. First, a vision model reads the receipt text. Then a language model extracts merchant, amounts, date, and category -- all in under 30 seconds.</p>
+            </div>
+            <div class="glass rounded-2xl p-6 lg:order-1">
+              <div class="space-y-3">
+                <div class="flex items-center gap-2 text-sm text-accent-400 font-medium">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Workers AI Pipeline
+                </div>
+                <div class="bg-white/5 rounded-lg p-3 text-xs font-mono text-slate-300">
+                  <div class="text-slate-500">// Stage 1: Vision OCR</div>
+                  <div>model: <span class="text-primary-400">gemma-3-12b-it</span></div>
+                  <div class="text-slate-500 mt-2">// Stage 2: Data Extraction</div>
+                  <div>model: <span class="text-accent-400">llama-3.1-8b-instruct</span></div>
+                </div>
+                <div class="space-y-2 pt-2">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Merchant</span>
+                    <span class="text-white">Urban Kitchen</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Total</span>
+                    <span class="text-primary-400 font-semibold">$47.83</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Tax</span>
+                    <span class="text-white">$3.83</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">Date</span>
+                    <span class="text-white">2025-04-18</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold text-lg mb-4">3</div>
+              <h3 class="text-2xl font-bold text-white mb-3">Review, edit, and finalize</h3>
+              <p class="text-slate-400 leading-relaxed">Check the AI's work. Edit any field that needs correcting, see the confidence score, and click finalize to create the expense record. The receipt image stays linked for your records.</p>
+            </div>
+            <div class="glass rounded-2xl p-6">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">Finalized</span>
+                <span class="text-xs text-slate-400">Confidence: 94%</span>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between py-2 border-b border-white/5">
+                  <span class="text-sm text-white font-medium">Urban Kitchen</span>
+                  <span class="text-sm text-primary-400 font-bold">$47.83</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-white/5">
+                  <span class="text-xs text-slate-400">April 18, 2025</span>
+                  <span class="text-xs bg-accent-500/20 text-accent-400 px-2 py-0.5 rounded-full">Dining</span>
+                </div>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <div class="flex-1 h-9 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <svg class="w-4 h-4 text-green-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span class="text-xs text-green-400 font-medium">Expense Created</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Built on Cloudflare -->
+    <section id="built-on-cloudflare" class="py-24 border-t border-white/10 relative overflow-hidden">
+      <!-- Orange-tinted background glow -->
+      <div class="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent"></div>
+
+      <div class="relative max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-16">
+          <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 mb-4">
+            <svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16.309 8.751h-.004l.01-.021a2.87 2.87 0 00-.144-2.917 2.94 2.94 0 00-2.47-1.37l-.142.004a2.882 2.882 0 00-1.843.842l-.461.485-.483-.465a3.358 3.358 0 00-2.156-.97 3.218 3.218 0 00-2.58.974A3.093 3.093 0 005.2 7.759l.004.087a2.98 2.98 0 00.465 1.38l.142.215H4.02A1.97 1.97 0 002.058 11.4v1.476c0 .103.008.204.024.303v5.868A1.97 1.97 0 004.04 21h15.918a1.97 1.97 0 001.96-1.953v-5.838c.02-.11.03-.223.03-.339V11.4a1.97 1.97 0 00-1.96-1.96h-1.855l.146-.222a2.99 2.99 0 00.03-2.467zm-4.238-1.953a1.33 1.33 0 01.883-.336l.067-.002c.487.013.93.251 1.17.665a1.417 1.417 0 01-.073 1.499l-1.137 1.733h-2.794l1.884-3.56zm-4.62.218a1.706 1.706 0 011.367-.51 1.838 1.838 0 011.234.559l1.503 1.451-1.064 2.012H6.887l-.081-.123a1.507 1.507 0 01-.233-.7l-.002-.054c-.023-.462.135-.922.438-1.222l.442-.412zm-4.386 4.932a.425.425 0 01.423-.423h7.244v1.899H3.065v-1.476zm1.002 7.576v-4.152h6.665v4.87H4.04a.425.425 0 01-.424-.424l-.001-.294zm16.342.294a.425.425 0 01-.424.424h-6.72v-4.87h7.144v4.446zm.527-5.97a.378.378 0 01-.103.233.35.35 0 01-.244.097h-7.324v-1.9h7.267a.425.425 0 01.424.424l-.02 1.147z" />
+            </svg>
+            <span class="text-xs text-orange-300 font-medium">Powered by Cloudflare</span>
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-bold text-white">Built on Cloudflare's Developer Platform</h2>
+          <p class="mt-4 text-slate-400 max-w-2xl mx-auto">Every piece of Quickspense runs on Cloudflare -- from the web app to AI processing to data storage. No external APIs, no third-party infrastructure.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Workers -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">Workers</h3>
+            <p class="text-sm text-slate-400">Runs at the edge, globally distributed. The web app and API are both Workers.</p>
+          </div>
+
+          <!-- D1 -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">D1</h3>
+            <p class="text-sm text-slate-400">Serverless SQL database for users, receipts, expenses, and categories. Fast reads at the edge.</p>
+          </div>
+
+          <!-- R2 -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">R2</h3>
+            <p class="text-sm text-slate-400">Object storage for receipt images with zero egress fees. Your receipts stay cheap to serve.</p>
+          </div>
+
+          <!-- Workers AI -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">Workers AI</h3>
+            <p class="text-sm text-slate-400">On-device AI models for OCR and data extraction. No external API calls, no data leaving Cloudflare's network.</p>
+          </div>
+
+          <!-- Workflows -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">Workflows</h3>
+            <p class="text-sm text-slate-400">Durable, retryable multi-step receipt processing. If a step fails, it picks up right where it left off.</p>
+          </div>
+
+          <!-- Email Workers -->
+          <div class="glass rounded-2xl p-6 hover:border-orange-500/20 transition-colors duration-200 cursor-default">
+            <div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">Email Workers</h3>
+            <p class="text-sm text-slate-400">Password reset and transactional emails handled at the edge. No SendGrid, no Postmark -- just Cloudflare.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="py-24 border-t border-white/10">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">Ready to stop losing receipts?</h2>
+        <p class="mt-4 text-lg text-slate-400">Start tracking expenses in seconds. No credit card required.</p>
+        <a href="/register" class="inline-flex items-center justify-center bg-accent-500 hover:bg-accent-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-200 mt-8 cursor-pointer">
+          Get Started Free
+        </a>
+      </div>
+    </section>
+
+    <!-- Animated mockup CSS -->
+    <style>
+      /* Mockup animation keyframes */
+      .mockup-step {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      .mockup-step-1 {
+        animation: fadeInUp 0.6s ease-out forwards;
+        animation-delay: 0.5s;
+      }
+
+      .mockup-step-2 {
+        animation: fadeInUp 0.6s ease-out forwards;
+        animation-delay: 2s;
+      }
+
+      .mockup-step-3 {
+        animation: fadeInUp 0.6s ease-out forwards;
+        animation-delay: 4s;
+      }
+
+      .mockup-spinner {
+        animation: spin 1s linear infinite;
+        animation-delay: 2s;
+        opacity: 0;
+      }
+
+      .mockup-step-2.mockup-step {
+        animation: fadeInUp 0.6s ease-out forwards, fadeOutDown 0.6s ease-out forwards;
+        animation-delay: 2s, 3.8s;
+      }
+
+      .mockup-progress {
+        width: 0%;
+        animation: progressFill 1.5s ease-out forwards;
+        animation-delay: 2.2s;
+      }
+
+      .mockup-confidence {
+        animation: confidenceFill 0.8s ease-out forwards;
+        animation-delay: 4.5s;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeOutDown {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
+          position: absolute;
+          pointer-events: none;
+        }
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); opacity: 1; }
+        to { transform: rotate(360deg); opacity: 1; }
+      }
+
+      @keyframes progressFill {
+        from { width: 0%; }
+        to { width: 100%; }
+      }
+
+      @keyframes confidenceFill {
+        from { width: 0%; }
+        to { width: 94%; }
+      }
+    </style>
+  </LandingLayout>

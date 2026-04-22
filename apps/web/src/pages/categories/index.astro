@@ -1,0 +1,15 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { CategoryManager } from "../../components/CategoryManager";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <h1 class="text-2xl font-bold text-white mb-6">Categories</h1>
+  <div class="max-w-lg">
+    <CategoryManager client:load />
+  </div>
+</Layout>

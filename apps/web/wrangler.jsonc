@@ -1,0 +1,41 @@
+{
+  "name": "quickspense-web",
+  "main": "./dist/_worker.js/index.js",
+  "compatibility_date": "2025-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "observability": { "enabled": true },
+  "vars": {
+    "APP_URL": "https://quickspense.com",
+    "EMAIL_FROM_ADDRESS": "noreply@quickspense.com",
+    "EMAIL_FROM_NAME": "Quickspense"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "quickspense-db",
+      "database_id": "640c1b1c-f15d-49be-9c0a-d7264ec49b5b"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "quickspense-receipts"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true
+    }
+  ],
+  "services": [
+    {
+      "binding": "WORKER",
+      "service": "quickspense-worker"
+    }
+  ]
+}

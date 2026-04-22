@@ -1,0 +1,30 @@
+{
+  "name": "quickspense-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-04-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "quickspense-db",
+      "database_id": "640c1b1c-f15d-49be-9c0a-d7264ec49b5b"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "quickspense-receipts"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "workflows": [
+    {
+      "name": "receipt-processing",
+      "binding": "RECEIPT_WORKFLOW",
+      "class_name": "ReceiptProcessingWorkflow"
+    }
+  ]
+}

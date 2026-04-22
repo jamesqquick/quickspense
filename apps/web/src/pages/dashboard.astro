@@ -1,0 +1,13 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { DashboardSummary } from "../components/DashboardSummary";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <h1 class="text-2xl font-bold text-white mb-6">Dashboard</h1>
+  <DashboardSummary client:load />
+</Layout>

@@ -1,0 +1,78 @@
+---
+import "../styles/global.css";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI-powered receipt scanning and expense tracking, built entirely on Cloudflare." />
+    <title>Quickspense - AI-Powered Expense Tracking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-surface-900 text-slate-100 font-sans">
+    <!-- Floating navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-strong" id="landing-nav">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <a href="/" class="text-xl font-bold text-white tracking-tight">Quickspense</a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="#features" class="text-sm text-slate-300 hover:text-white transition-colors duration-200">Features</a>
+          <a href="#how-it-works" class="text-sm text-slate-300 hover:text-white transition-colors duration-200">How It Works</a>
+          <a href="#built-on-cloudflare" class="text-sm text-slate-300 hover:text-white transition-colors duration-200">Built on Cloudflare</a>
+          <a href="/login" class="text-sm text-slate-300 hover:text-white transition-colors duration-200">Login</a>
+          <a href="/register" class="text-sm bg-accent-500 text-white px-4 py-2 rounded-xl hover:bg-accent-600 transition-colors duration-200 font-medium cursor-pointer">
+            Get Started
+          </a>
+        </div>
+        <!-- Mobile menu button -->
+        <button id="mobile-menu-btn" class="md:hidden text-slate-300 hover:text-white cursor-pointer" aria-label="Toggle menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+      <!-- Mobile menu -->
+      <div id="mobile-menu" class="hidden md:hidden px-4 pb-4 space-y-2">
+        <a href="#features" class="block text-sm text-slate-300 hover:text-white py-2">Features</a>
+        <a href="#how-it-works" class="block text-sm text-slate-300 hover:text-white py-2">How It Works</a>
+        <a href="#built-on-cloudflare" class="block text-sm text-slate-300 hover:text-white py-2">Built on Cloudflare</a>
+        <a href="/login" class="block text-sm text-slate-300 hover:text-white py-2">Login</a>
+        <a href="/register" class="block text-sm bg-accent-500 text-white px-4 py-2 rounded-xl text-center font-medium">Get Started</a>
+      </div>
+    </nav>
+
+    <slot />
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <p class="text-sm text-slate-400">&copy; {new Date().getFullYear()} Quickspense. Built on Cloudflare.</p>
+        <div class="flex items-center gap-6">
+          <a href="#features" class="text-sm text-slate-400 hover:text-slate-200 transition-colors duration-200">Features</a>
+          <a href="#how-it-works" class="text-sm text-slate-400 hover:text-slate-200 transition-colors duration-200">How It Works</a>
+          <a href="/login" class="text-sm text-slate-400 hover:text-slate-200 transition-colors duration-200">Login</a>
+          <a href="/register" class="text-sm text-slate-400 hover:text-slate-200 transition-colors duration-200">Register</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const btn = document.getElementById("mobile-menu-btn");
+      const menu = document.getElementById("mobile-menu");
+      if (btn && menu) {
+        btn.addEventListener("click", () => {
+          menu.classList.toggle("hidden");
+        });
+        // Close menu when clicking a link
+        menu.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", () => {
+            menu.classList.add("hidden");
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

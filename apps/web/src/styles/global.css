@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary: Amber/Gold - money, expense tracking */
+  --color-primary-400: #FBBF24;
+  --color-primary-500: #F59E0B;
+  --color-primary-600: #D97706;
+
+  /* Accent: Violet - tech, CTA contrast */
+  --color-accent-400: #A78BFA;
+  --color-accent-500: #8B5CF6;
+  --color-accent-600: #7C3AED;
+
+  /* Surface colors for dark theme */
+  --color-surface-900: #0F172A;
+  --color-surface-800: #1E293B;
+  --color-surface-700: #334155;
+
+  /* Font family */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Glass card utility */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

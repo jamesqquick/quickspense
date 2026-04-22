@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+.wrangler-shared/
+.astro/
+.dev.vars
+*.local
+.DS_Store
+.env
+.env.*

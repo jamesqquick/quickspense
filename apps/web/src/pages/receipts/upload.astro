@@ -1,0 +1,15 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { UploadForm } from "../../components/UploadForm";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <div class="max-w-lg mx-auto">
+    <h1 class="text-2xl font-bold text-white mb-6">Upload Receipt</h1>
+    <UploadForm client:load />
+  </div>
+</Layout>

@@ -1,0 +1,17 @@
+{
+  "name": "quickspense",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @quickspense/web dev",
+    "dev:worker": "pnpm --filter @quickspense/worker dev",
+    "build": "pnpm --filter @quickspense/domain build && pnpm --filter @quickspense/web build && pnpm --filter @quickspense/worker build",
+    "test": "pnpm --filter @quickspense/domain test",
+    "build:domain": "pnpm --filter @quickspense/domain build",
+    "build:web": "pnpm --filter @quickspense/web build",
+    "build:worker": "pnpm --filter @quickspense/worker build",
+    "deploy:web": "pnpm --filter @quickspense/web run deploy",
+    "deploy:worker": "pnpm --filter @quickspense/worker run deploy",
+    "db:migrate:local": "pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db --local --persist-to=../../.wrangler-shared --file=../../migrations/0001_initial.sql && pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db --local --persist-to=../../.wrangler-shared --file=../../migrations/0002_password_reset.sql",
+    "db:migrate:remote": "pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db --remote --file=../../migrations/0001_initial.sql && pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db --remote --file=../../migrations/0002_password_reset.sql"
+  }
+}
