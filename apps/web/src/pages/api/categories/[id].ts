@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { categories, updateCategorySchema } from "@quickspense/domain";
+import { categories, updateCategorySchema, createDb } from "@quickspense/domain";
 
 export const PATCH: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const categoryId = params.id!;
 
     const body = await request.json();
@@ -44,7 +44,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 export const DELETE: APIRoute = async ({ params, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const categoryId = params.id!;
 
     await categories.deleteCategory(db, categoryId, user.id);

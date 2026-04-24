@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { expenses, updateExpenseSchema } from "@quickspense/domain";
+import { expenses, updateExpenseSchema, createDb } from "@quickspense/domain";
 
 export const PATCH: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const expenseId = params.id!;
 
     const body = await request.json();
@@ -28,6 +28,29 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       });
     }
     console.error("Update expense error:", e);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+};
+
+export const DELETE: APIRoute = async ({ params, locals }) => {
+  try {
+    const user = locals.user!;
+    const db = createDb(locals.runtime.env.DB);
+    const expenseId = params.id!;
+
+    await expenses.deleteExpense(db, expenseId, user.id);
+    return new Response(null, { status: 204 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "NotFoundError") {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    console.error("Delete expense error:", e);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

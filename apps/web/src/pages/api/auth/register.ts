@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth, registerSchema } from "@quickspense/domain";
+import { auth, registerSchema, createDb } from "@quickspense/domain";
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const user = await auth.createUser(db, parsed.data.email, parsed.data.password);
     const session = await auth.createSession(db, user.id);
 

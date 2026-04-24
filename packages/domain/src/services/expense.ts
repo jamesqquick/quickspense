@@ -1,8 +1,12 @@
+import { eq, and, desc, gte, lte, sql, sum, count } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import type { Database } from "../db/index.js";
+import { expenses, categories } from "../db/schema.js";
 import type { Expense, ExpenseSummary } from "../types.js";
-import { NotFoundError, ValidationError } from "../errors.js";
+import { NotFoundError } from "../errors.js";
 
 export async function createExpenseFromReceipt(
-  db: D1Database,
+  db: Database,
   params: {
     receiptId: string;
     userId: string;
@@ -17,25 +21,19 @@ export async function createExpenseFromReceipt(
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  await db
-    .prepare(
-      `INSERT INTO expenses (id, user_id, receipt_id, merchant, amount, currency, expense_date, category_id, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      id,
-      params.userId,
-      params.receiptId,
-      params.merchant,
-      params.amount,
-      params.currency,
-      params.date,
-      params.categoryId ?? null,
-      params.notes ?? null,
-      now,
-      now,
-    )
-    .run();
+  await db.insert(expenses).values({
+    id,
+    user_id: params.userId,
+    receipt_id: params.receiptId,
+    merchant: params.merchant,
+    amount: params.amount,
+    currency: params.currency,
+    expense_date: params.date,
+    category_id: params.categoryId ?? null,
+    notes: params.notes ?? null,
+    created_at: now,
+    updated_at: now,
+  });
 
   return {
     id,
@@ -53,7 +51,7 @@ export async function createExpenseFromReceipt(
 }
 
 export async function createManualExpense(
-  db: D1Database,
+  db: Database,
   params: {
     userId: string;
     merchant: string;
@@ -67,24 +65,19 @@ export async function createManualExpense(
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  await db
-    .prepare(
-      `INSERT INTO expenses (id, user_id, receipt_id, merchant, amount, currency, expense_date, category_id, notes, created_at, updated_at)
-       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      id,
-      params.userId,
-      params.merchant,
-      params.amount,
-      params.currency,
-      params.date,
-      params.categoryId ?? null,
-      params.notes ?? null,
-      now,
-      now,
-    )
-    .run();
+  await db.insert(expenses).values({
+    id,
+    user_id: params.userId,
+    receipt_id: null,
+    merchant: params.merchant,
+    amount: params.amount,
+    currency: params.currency,
+    expense_date: params.date,
+    category_id: params.categoryId ?? null,
+    notes: params.notes ?? null,
+    created_at: now,
+    updated_at: now,
+  });
 
   return {
     id,
@@ -102,7 +95,7 @@ export async function createManualExpense(
 }
 
 export async function listExpenses(
-  db: D1Database,
+  db: Database,
   userId: string,
   opts: {
     startDate?: string;
@@ -113,42 +106,35 @@ export async function listExpenses(
   } = {},
 ): Promise<Expense[]> {
   const { startDate, endDate, categoryId, limit = 20, offset = 0 } = opts;
-  const conditions = ["user_id = ?"];
-  const bindings: unknown[] = [userId];
 
-  if (startDate) {
-    conditions.push("expense_date >= ?");
-    bindings.push(startDate);
-  }
-  if (endDate) {
-    conditions.push("expense_date <= ?");
-    bindings.push(endDate);
-  }
-  if (categoryId) {
-    conditions.push("category_id = ?");
-    bindings.push(categoryId);
-  }
+  const conditions: SQL[] = [eq(expenses.user_id, userId)];
+  if (startDate) conditions.push(gte(expenses.expense_date, startDate));
+  if (endDate) conditions.push(lte(expenses.expense_date, endDate));
+  if (categoryId) conditions.push(eq(expenses.category_id, categoryId));
 
-  bindings.push(limit, offset);
-  const sql = `SELECT * FROM expenses WHERE ${conditions.join(" AND ")} ORDER BY expense_date DESC, created_at DESC LIMIT ? OFFSET ?`;
-  const { results } = await db.prepare(sql).bind(...bindings).all<Expense>();
-  return results;
+  return db
+    .select()
+    .from(expenses)
+    .where(and(...conditions))
+    .orderBy(desc(expenses.expense_date), desc(expenses.created_at))
+    .limit(limit)
+    .offset(offset) as Promise<Expense[]>;
 }
 
 export async function getExpense(
-  db: D1Database,
+  db: Database,
   expenseId: string,
   userId: string,
 ): Promise<Expense | null> {
-  const row = await db
-    .prepare("SELECT * FROM expenses WHERE id = ? AND user_id = ?")
-    .bind(expenseId, userId)
-    .first<Expense>();
-  return row ?? null;
+  const [row] = await db
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.id, expenseId), eq(expenses.user_id, userId)));
+  return (row as Expense | undefined) ?? null;
 }
 
 export async function updateExpense(
-  db: D1Database,
+  db: Database,
   expenseId: string,
   userId: string,
   fields: {
@@ -163,73 +149,71 @@ export async function updateExpense(
   const existing = await getExpense(db, expenseId, userId);
   if (!existing) throw new NotFoundError("Expense", expenseId);
 
-  const setClauses: string[] = ["updated_at = datetime('now')"];
-  const values: unknown[] = [];
-
+  const updates: Record<string, unknown> = { updated_at: sql`datetime('now')` };
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
-      setClauses.push(`${key} = ?`);
-      values.push(value);
+      updates[key] = value;
     }
   }
 
-  values.push(expenseId, userId);
   await db
-    .prepare(
-      `UPDATE expenses SET ${setClauses.join(", ")} WHERE id = ? AND user_id = ?`,
-    )
-    .bind(...values)
-    .run();
+    .update(expenses)
+    .set(updates)
+    .where(and(eq(expenses.id, expenseId), eq(expenses.user_id, userId)));
 
   const updated = await getExpense(db, expenseId, userId);
   if (!updated) throw new NotFoundError("Expense", expenseId);
   return updated;
 }
 
+export async function deleteExpense(
+  db: Database,
+  expenseId: string,
+  userId: string,
+): Promise<void> {
+  const existing = await getExpense(db, expenseId, userId);
+  if (!existing) throw new NotFoundError("Expense", expenseId);
+
+  await db
+    .delete(expenses)
+    .where(and(eq(expenses.id, expenseId), eq(expenses.user_id, userId)));
+}
+
 export async function getExpenseSummary(
-  db: D1Database,
+  db: Database,
   userId: string,
   opts: { startDate?: string; endDate?: string } = {},
 ): Promise<ExpenseSummary> {
   const { startDate, endDate } = opts;
-  const conditions = ["e.user_id = ?"];
-  const bindings: unknown[] = [userId];
 
-  if (startDate) {
-    conditions.push("e.expense_date >= ?");
-    bindings.push(startDate);
-  }
-  if (endDate) {
-    conditions.push("e.expense_date <= ?");
-    bindings.push(endDate);
-  }
+  const conditions: SQL[] = [eq(expenses.user_id, userId)];
+  if (startDate) conditions.push(gte(expenses.expense_date, startDate));
+  if (endDate) conditions.push(lte(expenses.expense_date, endDate));
 
-  const where = conditions.join(" AND ");
+  const where = and(...conditions);
 
   // Total and count
-  const totals = await db
-    .prepare(
-      `SELECT COALESCE(SUM(e.amount), 0) as total, COUNT(*) as count FROM expenses e WHERE ${where}`,
-    )
-    .bind(...bindings)
-    .first<{ total: number; count: number }>();
+  const [totals] = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
+      count: count(),
+    })
+    .from(expenses)
+    .where(where);
 
   // By category
-  const { results: byCategory } = await db
-    .prepare(
-      `SELECT e.category_id, c.name as category_name, SUM(e.amount) as total, COUNT(*) as count
-       FROM expenses e LEFT JOIN categories c ON e.category_id = c.id
-       WHERE ${where}
-       GROUP BY e.category_id, c.name
-       ORDER BY total DESC`,
-    )
-    .bind(...bindings)
-    .all<{
-      category_id: string | null;
-      category_name: string | null;
-      total: number;
-      count: number;
-    }>();
+  const byCategory = await db
+    .select({
+      category_id: expenses.category_id,
+      category_name: categories.name,
+      total: sql<number>`SUM(${expenses.amount})`,
+      count: count(),
+    })
+    .from(expenses)
+    .leftJoin(categories, eq(expenses.category_id, categories.id))
+    .where(where)
+    .groupBy(expenses.category_id, categories.name)
+    .orderBy(desc(sql`SUM(${expenses.amount})`));
 
   return {
     total: totals?.total ?? 0,

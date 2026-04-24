@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./db": {
+      "import": "./dist/db/index.js",
+      "types": "./dist/db/index.d.ts"
     }
   },
   "scripts": {
@@ -18,6 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

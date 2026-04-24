@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { auth } from "@quickspense/domain";
+import { auth, createDb } from "@quickspense/domain";
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const tokenId = params.id!;
 
     await auth.deleteApiToken(db, tokenId, user.id);

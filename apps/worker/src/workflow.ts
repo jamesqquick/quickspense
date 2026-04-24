@@ -3,7 +3,7 @@ import {
   WorkflowStep,
   WorkflowEvent,
 } from "cloudflare:workers";
-import { createLogger } from "@quickspense/domain";
+import { createDb, createLogger, receipts, parse } from "@quickspense/domain";
 import type { Env } from "./index.js";
 import { extractTextFromImage } from "./ai/ocr.js";
 import {
@@ -34,20 +34,12 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
     });
     logger.info("Workflow starting");
 
-    // Idempotency guard: no-op if the receipt is already finalized or actively processing.
-    // Prevents duplicate AI spend from accidental double-triggers (e.g. rapid reprocess clicks).
-    const shouldSkip = await step.do("idempotency-check", async () => {
-      const receipt = await this.env.DB.prepare(
-        "SELECT status FROM receipts WHERE id = ?",
-      )
-        .bind(receiptId)
-        .first<{ status: string }>();
+    const db = createDb(this.env.DB);
 
-      if (!receipt) {
-        // Receipt was deleted between trigger and execution. Safe to skip.
-        return true;
-      }
-      // Already finalized: nothing to do.
+    // Idempotency guard: no-op if the receipt is already finalized or actively processing.
+    const shouldSkip = await step.do("idempotency-check", async () => {
+      const receipt = await receipts.getReceipt(db, receiptId);
+      if (!receipt) return true;
       if (receipt.status === "finalized") return true;
       return false;
     });
@@ -60,11 +52,7 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
     try {
       // Step 1: Mark as processing
       await step.do("mark-processing", async () => {
-        await this.env.DB.prepare(
-          "UPDATE receipts SET status = 'processing', updated_at = datetime('now') WHERE id = ?",
-        )
-          .bind(receiptId)
-          .run();
+        await receipts.updateReceiptStatus(db, receiptId, "processing");
       });
 
       // Step 2: Load file from R2 and OCR in a single step to avoid the
@@ -76,12 +64,7 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
           timeout: "2 minutes",
         },
         async () => {
-          const receipt = await this.env.DB.prepare(
-            "SELECT file_key, file_type FROM receipts WHERE id = ?",
-          )
-            .bind(receiptId)
-            .first<{ file_key: string; file_type: string }>();
-
+          const receipt = await receipts.getReceipt(db, receiptId);
           if (!receipt) throw new Error(`Receipt ${receiptId} not found`);
 
           const object = await this.env.BUCKET.get(receipt.file_key);
@@ -123,50 +106,38 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
 
       // Step 5: Persist parsed results
       await step.do("persist-results", async () => {
-        const id = crypto.randomUUID();
-        await this.env.DB.prepare(
-          `INSERT INTO parsed_receipts
-           (id, receipt_id, ocr_text, merchant, total_amount, subtotal_amount, tax_amount, tip_amount, currency, purchase_date, suggested_category, confidence_score, raw_response)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-          .bind(
-            id,
-            receiptId,
-            ocrText,
-            normalized.merchant,
-            normalized.totalAmount,
-            normalized.subtotalAmount,
-            normalized.taxAmount,
-            normalized.tipAmount,
-            normalized.currency,
-            normalized.purchaseDate,
-            normalized.suggestedCategory,
-            normalized.confidenceScore,
-            JSON.stringify(extracted),
-          )
-          .run();
+        await parse.createParsedReceipt(db, {
+          receiptId,
+          ocrText,
+          merchant: normalized.merchant,
+          totalAmount: normalized.totalAmount,
+          subtotalAmount: normalized.subtotalAmount,
+          taxAmount: normalized.taxAmount,
+          tipAmount: normalized.tipAmount,
+          currency: normalized.currency,
+          purchaseDate: normalized.purchaseDate,
+          suggestedCategory: normalized.suggestedCategory,
+          confidenceScore: normalized.confidenceScore,
+          rawResponse: JSON.stringify(extracted),
+        });
       });
 
       // Step 6: Mark as needs_review
       await step.do("mark-needs-review", async () => {
-        await this.env.DB.prepare(
-          "UPDATE receipts SET status = 'needs_review', updated_at = datetime('now') WHERE id = ?",
-        )
-          .bind(receiptId)
-          .run();
+        await receipts.updateReceiptStatus(db, receiptId, "needs_review");
       });
       logger.info("Workflow completed successfully");
     } catch (error) {
       logger.error("Workflow failed", { error });
-      // Mark as failed
       await step.do("mark-failed", async () => {
         const message =
           error instanceof Error ? error.message : "Unknown error";
-        await this.env.DB.prepare(
-          "UPDATE receipts SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?",
-        )
-          .bind(message, receiptId)
-          .run();
+        await receipts.updateReceiptStatus(
+          db,
+          receiptId,
+          "failed",
+          message,
+        );
       });
     }
   }

@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { auth, createApiTokenSchema } from "@quickspense/domain";
+import { auth, createApiTokenSchema, createDb } from "@quickspense/domain";
 
 export const GET: APIRoute = async ({ locals }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const tokens = await auth.listApiTokens(db, user.id);
   return new Response(JSON.stringify(tokens), {
     headers: { "Content-Type": "application/json" },
@@ -13,7 +13,7 @@ export const GET: APIRoute = async ({ locals }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
 
     const body = await request.json();
     const parsed = createApiTokenSchema.safeParse(body);

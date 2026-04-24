@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
+import { createDb } from "../src/db/index.js";
 import * as auth from "../src/services/auth.js";
 import * as receipts from "../src/services/receipt.js";
 import * as expenses from "../src/services/expense.js";
@@ -59,12 +60,14 @@ describe("multi-tenant authorization", () => {
   });
 
   it("User B cannot access User A's receipt", async () => {
+    const db = createDb(env.DB);
+
     // Arrange: create two users
-    const userA = await auth.createUser(env.DB, "a@example.com", "passwordA123");
-    const userB = await auth.createUser(env.DB, "b@example.com", "passwordB123");
+    const userA = await auth.createUser(db, "a@example.com", "passwordA123");
+    const userB = await auth.createUser(db, "b@example.com", "passwordB123");
 
     // User A creates a receipt
-    const receipt = await receipts.createReceipt(env.DB, {
+    const receipt = await receipts.createReceipt(db, {
       userId: userA.id,
       fileKey: "receipts/abc/test.jpg",
       fileName: "test.jpg",
@@ -73,27 +76,27 @@ describe("multi-tenant authorization", () => {
     });
 
     // Act + Assert 1: User A can read their own receipt
-    const ownReceipt = await receipts.getReceipt(env.DB, receipt.id, userA.id);
+    const ownReceipt = await receipts.getReceipt(db, receipt.id, userA.id);
     expect(ownReceipt).not.toBeNull();
     expect(ownReceipt?.id).toBe(receipt.id);
 
     // Act + Assert 2: User B cannot read User A's receipt (returns null, not the row)
-    const crossReceipt = await receipts.getReceipt(env.DB, receipt.id, userB.id);
+    const crossReceipt = await receipts.getReceipt(db, receipt.id, userB.id);
     expect(crossReceipt).toBeNull();
 
     // Act + Assert 3: User B's receipt list does not include User A's receipt
-    const userBReceipts = await receipts.listReceipts(env.DB, userB.id);
+    const userBReceipts = await receipts.listReceipts(db, userB.id);
     expect(userBReceipts).toHaveLength(0);
 
     // Act + Assert 4: User A's expense list does not include User B's data (and vice versa)
-    await expenses.createManualExpense(env.DB, {
+    await expenses.createManualExpense(db, {
       userId: userA.id,
       merchant: "A's Store",
       amount: 1000,
       currency: "USD",
       date: "2025-01-01",
     });
-    await expenses.createManualExpense(env.DB, {
+    await expenses.createManualExpense(db, {
       userId: userB.id,
       merchant: "B's Store",
       amount: 2000,
@@ -101,8 +104,8 @@ describe("multi-tenant authorization", () => {
       date: "2025-01-01",
     });
 
-    const userAExpenses = await expenses.listExpenses(env.DB, userA.id);
-    const userBExpenses = await expenses.listExpenses(env.DB, userB.id);
+    const userAExpenses = await expenses.listExpenses(db, userA.id);
+    const userBExpenses = await expenses.listExpenses(db, userB.id);
     expect(userAExpenses).toHaveLength(1);
     expect(userAExpenses[0].merchant).toBe("A's Store");
     expect(userBExpenses).toHaveLength(1);

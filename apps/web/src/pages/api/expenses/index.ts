@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { expenses, listExpensesSchema, createManualExpenseSchema } from "@quickspense/domain";
+import { expenses, listExpensesSchema, createManualExpenseSchema, createDb } from "@quickspense/domain";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
 
   const params = listExpensesSchema.safeParse({
     startDate: url.searchParams.get("startDate") || undefined,
@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
 
     const body = await request.json();
     const parsed = createManualExpenseSchema.safeParse(body);

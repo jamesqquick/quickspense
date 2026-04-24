@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { auth } from "@quickspense/domain";
+import { auth, createDb } from "@quickspense/domain";
 
 export const DELETE: APIRoute = async ({ locals, cookies }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const bucket = locals.runtime.env.BUCKET;
   const logger = locals.logger;
 

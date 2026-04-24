@@ -9,6 +9,7 @@ import {
   NotFoundError,
   InvalidStateTransitionError,
 } from "@quickspense/domain";
+import type { Database } from "@quickspense/domain";
 import type { Env } from "../index.js";
 
 /**
@@ -48,13 +49,11 @@ async function runTool<T>(
   }
 }
 
-export function createServer(env: Env, userId: string): McpServer {
+export function createServer(env: Env, db: Database, userId: string): McpServer {
   const server = new McpServer({
     name: "Quickspense MCP",
     version: "1.0.0",
   });
-
-  const db = env.DB;
 
   // --- RECEIPT TOOLS ---
 
@@ -166,13 +165,7 @@ export function createServer(env: Env, userId: string): McpServer {
           categoryId: category_id,
           notes,
         });
-        // Direct status update since updateReceiptStatus enforces valid transitions and we already checked
-        await db
-          .prepare(
-            "UPDATE receipts SET status = 'finalized', updated_at = datetime('now') WHERE id = ?",
-          )
-          .bind(receiptId)
-          .run();
+        await receipts.finalizeReceipt(db, receiptId);
         return expense;
       }),
   );

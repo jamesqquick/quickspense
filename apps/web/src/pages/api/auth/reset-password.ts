@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth, resetPasswordSchema } from "@quickspense/domain";
+import { auth, resetPasswordSchema, createDb } from "@quickspense/domain";
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const logger = locals.logger;
 
     const validated = await auth.validatePasswordResetToken(db, parsed.data.token);

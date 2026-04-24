@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { receipts } from "@quickspense/domain";
+import { receipts, createDb } from "@quickspense/domain";
 import { triggerReceiptWorkflow } from "../../../../lib/workflow";
 
 export const POST: APIRoute = async ({ params, locals }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const worker = locals.runtime.env.WORKER;
   const receiptId = params.id!;
 

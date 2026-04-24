@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { receipts, expenses, finalizeReceiptSchema } from "@quickspense/domain";
+import { createDb, receipts, expenses, finalizeReceiptSchema } from "@quickspense/domain";
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const receiptId = params.id!;
 
     const receipt = await receipts.getReceipt(db, receiptId, user.id);
@@ -45,13 +45,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       notes: parsed.data.notes,
     });
 
-    // Mark receipt as finalized (direct update since the state transition is valid)
-    await db
-      .prepare(
-        "UPDATE receipts SET status = 'finalized', updated_at = datetime('now') WHERE id = ?",
-      )
-      .bind(receiptId)
-      .run();
+    // Mark receipt as finalized
+    await receipts.finalizeReceipt(db, receiptId);
 
     return new Response(JSON.stringify({ expense }), {
       status: 201,

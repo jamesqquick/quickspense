@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { auth, createLogger, newRequestId } from "@quickspense/domain";
+import { auth, createDb, createLogger, newRequestId } from "@quickspense/domain";
 
 const PUBLIC_PATHS = [
   "/",
@@ -35,7 +35,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const sessionId = context.cookies.get("session")?.value;
   if (sessionId) {
     try {
-      const db = context.locals.runtime.env.DB;
+      const db = createDb(context.locals.runtime.env.DB);
       const result = await auth.validateSession(db, sessionId);
       if (result) {
         context.locals.user = { id: result.user.id, email: result.user.email };

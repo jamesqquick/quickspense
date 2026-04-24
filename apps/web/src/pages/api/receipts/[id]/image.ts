@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { receipts } from "@quickspense/domain";
+import { receipts, createDb } from "@quickspense/domain";
 
 /**
  * Serve a receipt image from R2.
@@ -13,7 +13,7 @@ import { receipts } from "@quickspense/domain";
  */
 export const GET: APIRoute = async ({ params, locals, request }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const bucket = locals.runtime.env.BUCKET;
   const receiptId = params.id!;
 

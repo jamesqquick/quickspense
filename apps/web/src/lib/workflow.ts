@@ -1,4 +1,4 @@
-import { receipts, type Logger } from "@quickspense/domain";
+import { receipts, type Logger, type Database } from "@quickspense/domain";
 
 type TriggerResult =
   | { success: true; workflowId: string }
@@ -16,7 +16,7 @@ type TriggerResult =
  * with a descriptive error message so the user can see what happened and retry.
  */
 export async function triggerReceiptWorkflow(
-  db: D1Database,
+  db: Database,
   worker: Fetcher,
   receiptId: string,
   userId: string,

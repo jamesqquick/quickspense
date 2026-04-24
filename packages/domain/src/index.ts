@@ -2,6 +2,8 @@ export * from "./types.js";
 export * from "./schema.js";
 export * from "./errors.js";
 export * from "./logger.js";
+export { createDb, schema } from "./db/index.js";
+export type { Database } from "./db/index.js";
 export * as auth from "./services/auth.js";
 export * as receipts from "./services/receipt.js";
 export * as parse from "./services/parse.js";

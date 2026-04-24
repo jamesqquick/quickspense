@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth, loginSchema } from "@quickspense/domain";
+import { auth, loginSchema, createDb } from "@quickspense/domain";
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const user = await auth.getUserByEmail(db, parsed.data.email);
 
     if (!user || !(await auth.verifyPassword(parsed.data.password, user.password_hash))) {

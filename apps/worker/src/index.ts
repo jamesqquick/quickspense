@@ -1,5 +1,5 @@
 import { createMcpHandler } from "agents/mcp";
-import { createLogger, newRequestId } from "@quickspense/domain";
+import { createDb, createLogger, newRequestId, auth } from "@quickspense/domain";
 import { createServer } from "./mcp/server.js";
 
 export { ReceiptProcessingWorkflow } from "./workflow.js";
@@ -9,34 +9,6 @@ export interface Env {
   BUCKET: R2Bucket;
   AI: Ai;
   RECEIPT_WORKFLOW: Workflow;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const encoded = new TextEncoder().encode(input);
-  const hash = await crypto.subtle.digest("SHA-256", encoded);
-  return [...new Uint8Array(hash)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function authenticateBearer(
-  db: D1Database,
-  request: Request,
-): Promise<{ userId: string } | null> {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const rawToken = authHeader.slice(7);
-  const tokenHash = await sha256Hex(rawToken);
-
-  const row = await db
-    .prepare(
-      "SELECT u.id as user_id FROM api_tokens t JOIN users u ON t.user_id = u.id WHERE t.token_hash = ?",
-    )
-    .bind(tokenHash)
-    .first<{ user_id: string }>();
-
-  return row ? { userId: row.user_id } : null;
 }
 
 export default {
@@ -53,6 +25,8 @@ export default {
       path: url.pathname,
       method: request.method,
     });
+
+    const db = createDb(env.DB);
 
     // Workflow trigger endpoint (called via Service Binding from web app)
     if (url.pathname === "/workflow/trigger" && request.method === "POST") {
@@ -82,8 +56,8 @@ export default {
 
     // MCP endpoint with bearer token auth
     if (url.pathname.startsWith("/mcp")) {
-      const auth = await authenticateBearer(env.DB, request);
-      if (!auth) {
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
         logger.warn("MCP request unauthorized");
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -91,10 +65,19 @@ export default {
         });
       }
 
-      logger.info("MCP request authorized", { userId: auth.userId });
+      const rawToken = authHeader.slice(7);
+      const result = await auth.validateApiToken(db, rawToken);
+      if (!result) {
+        logger.warn("MCP request unauthorized");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
-      // Create a fresh MCP server instance per request
-      const server = createServer(env, auth.userId);
+      logger.info("MCP request authorized", { userId: result.user.id });
+
+      const server = createServer(env, db, result.user.id);
       const handler = createMcpHandler(server, { endpoint: "/mcp" });
       return handler(request, env, ctx);
     }

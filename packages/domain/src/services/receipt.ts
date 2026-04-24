@@ -1,9 +1,10 @@
+import { eq, and, desc, sql, count } from "drizzle-orm";
+import type { Database } from "../db/index.js";
+import { receipts } from "../db/schema.js";
 import type { Receipt, ReceiptStatus } from "../types.js";
 import { NotFoundError, InvalidStateTransitionError } from "../errors.js";
 
 const VALID_TRANSITIONS: Record<ReceiptStatus, ReceiptStatus[]> = {
-  // `uploaded -> failed` covers the case where the workflow trigger itself fails
-  // (e.g. Service Binding unavailable) before the workflow runs.
   uploaded: ["processing", "failed"],
   processing: ["needs_review", "failed"],
   needs_review: ["processing", "finalized"],
@@ -12,7 +13,7 @@ const VALID_TRANSITIONS: Record<ReceiptStatus, ReceiptStatus[]> = {
 };
 
 export async function createReceipt(
-  db: D1Database,
+  db: Database,
   params: {
     userId: string;
     fileKey: string;
@@ -24,13 +25,17 @@ export async function createReceipt(
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  await db
-    .prepare(
-      `INSERT INTO receipts (id, user_id, file_key, file_name, file_size, file_type, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)`,
-    )
-    .bind(id, params.userId, params.fileKey, params.fileName, params.fileSize, params.fileType, now, now)
-    .run();
+  await db.insert(receipts).values({
+    id,
+    user_id: params.userId,
+    file_key: params.fileKey,
+    file_name: params.fileName,
+    file_size: params.fileSize,
+    file_type: params.fileType,
+    status: "uploaded",
+    created_at: now,
+    updated_at: now,
+  });
 
   return {
     id,
@@ -48,48 +53,40 @@ export async function createReceipt(
 }
 
 export async function getReceipt(
-  db: D1Database,
+  db: Database,
   receiptId: string,
   userId?: string,
 ): Promise<Receipt | null> {
-  const sql = userId
-    ? "SELECT * FROM receipts WHERE id = ? AND user_id = ?"
-    : "SELECT * FROM receipts WHERE id = ?";
-  const stmt = userId
-    ? db.prepare(sql).bind(receiptId, userId)
-    : db.prepare(sql).bind(receiptId);
-  const row = await stmt.first<Receipt>();
-  return row ?? null;
+  const conditions = userId
+    ? and(eq(receipts.id, receiptId), eq(receipts.user_id, userId))
+    : eq(receipts.id, receiptId);
+
+  const [row] = await db.select().from(receipts).where(conditions);
+  return (row as Receipt | undefined) ?? null;
 }
 
 export async function listReceipts(
-  db: D1Database,
+  db: Database,
   userId: string,
   opts: { status?: ReceiptStatus; limit?: number; offset?: number } = {},
 ): Promise<Receipt[]> {
   const { status, limit = 20, offset = 0 } = opts;
 
-  if (status) {
-    const { results } = await db
-      .prepare(
-        "SELECT * FROM receipts WHERE user_id = ? AND status = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-      )
-      .bind(userId, status, limit, offset)
-      .all<Receipt>();
-    return results;
-  }
+  const conditions = status
+    ? and(eq(receipts.user_id, userId), eq(receipts.status, status))
+    : eq(receipts.user_id, userId);
 
-  const { results } = await db
-    .prepare(
-      "SELECT * FROM receipts WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-    )
-    .bind(userId, limit, offset)
-    .all<Receipt>();
-  return results;
+  return db
+    .select()
+    .from(receipts)
+    .where(conditions)
+    .orderBy(desc(receipts.updated_at))
+    .limit(limit)
+    .offset(offset) as Promise<Receipt[]>;
 }
 
 export async function updateReceiptStatus(
-  db: D1Database,
+  db: Database,
   receiptId: string,
   newStatus: ReceiptStatus,
   errorMessage?: string,
@@ -103,38 +100,62 @@ export async function updateReceiptStatus(
   }
 
   await db
-    .prepare(
-      "UPDATE receipts SET status = ?, error_message = ?, updated_at = datetime('now') WHERE id = ?",
-    )
-    .bind(newStatus, errorMessage ?? null, receiptId)
-    .run();
+    .update(receipts)
+    .set({
+      status: newStatus,
+      error_message: errorMessage ?? null,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(receipts.id, receiptId));
 }
 
 export async function updateReceiptWorkflowId(
-  db: D1Database,
+  db: Database,
   receiptId: string,
   workflowId: string,
 ): Promise<void> {
   await db
-    .prepare("UPDATE receipts SET workflow_id = ?, updated_at = datetime('now') WHERE id = ?")
-    .bind(workflowId, receiptId)
-    .run();
+    .update(receipts)
+    .set({
+      workflow_id: workflowId,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(receipts.id, receiptId));
 }
 
 export async function countReceiptsByStatus(
-  db: D1Database,
+  db: Database,
   userId: string,
 ): Promise<Record<string, number>> {
-  const { results } = await db
-    .prepare(
-      "SELECT status, COUNT(*) as count FROM receipts WHERE user_id = ? GROUP BY status",
-    )
-    .bind(userId)
-    .all<{ status: string; count: number }>();
+  const rows = await db
+    .select({
+      status: receipts.status,
+      count: count(),
+    })
+    .from(receipts)
+    .where(eq(receipts.user_id, userId))
+    .groupBy(receipts.status);
 
   const counts: Record<string, number> = {};
-  for (const row of results) {
+  for (const row of rows) {
     counts[row.status] = row.count;
   }
   return counts;
+}
+
+/**
+ * Directly finalize a receipt without state transition validation.
+ * Used by finalize endpoints that have already validated the transition is valid.
+ */
+export async function finalizeReceipt(
+  db: Database,
+  receiptId: string,
+): Promise<void> {
+  await db
+    .update(receipts)
+    .set({
+      status: "finalized",
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(receipts.id, receiptId));
 }

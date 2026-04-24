@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { expenses, categories, listExpensesSchema } from "@quickspense/domain";
+import { expenses, categories, listExpensesSchema, createDb } from "@quickspense/domain";
 
 /** Escape a CSV field per RFC 4180. */
 function csvField(value: string | number | null | undefined): string {
@@ -13,7 +13,7 @@ function csvField(value: string | number | null | undefined): string {
 
 export const GET: APIRoute = async ({ locals, url }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
 
   // Reuse the same filter schema as the regular list endpoint.
   // Override limit to max so all matching rows are exported.

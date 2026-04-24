@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { receipts } from "@quickspense/domain";
+import { receipts, createDb } from "@quickspense/domain";
 
 export const GET: APIRoute = async ({ locals }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
 
   const counts = await receipts.countReceiptsByStatus(db, user.id);
   return new Response(JSON.stringify(counts), {

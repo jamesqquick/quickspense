@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth, forgotPasswordSchema } from "@quickspense/domain";
+import { auth, forgotPasswordSchema, createDb } from "@quickspense/domain";
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const email = locals.runtime.env.EMAIL;
     const appUrl = locals.runtime.env.APP_URL;
     const fromAddress = locals.runtime.env.EMAIL_FROM_ADDRESS;

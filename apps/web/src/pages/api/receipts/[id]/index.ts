@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { receipts, parse, updateParsedFieldsSchema } from "@quickspense/domain";
+import { receipts, parse, updateParsedFieldsSchema, createDb } from "@quickspense/domain";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const receiptId = params.id!;
 
   const receipt = await receipts.getReceipt(db, receiptId, user.id);
@@ -23,7 +23,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
 export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
   const receiptId = params.id!;
 
   const receipt = await receipts.getReceipt(db, receiptId, user.id);

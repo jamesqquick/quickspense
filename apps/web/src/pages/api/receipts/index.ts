@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { receipts, listReceiptsSchema } from "@quickspense/domain";
+import { receipts, listReceiptsSchema, createDb } from "@quickspense/domain";
 import { triggerReceiptWorkflow } from "../../../lib/workflow";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -7,7 +7,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export const GET: APIRoute = async ({ locals, url }) => {
   const user = locals.user!;
-  const db = locals.runtime.env.DB;
+  const db = createDb(locals.runtime.env.DB);
 
   const params = listReceiptsSchema.safeParse({
     status: url.searchParams.get("status") || undefined,
@@ -31,7 +31,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const user = locals.user!;
-    const db = locals.runtime.env.DB;
+    const db = createDb(locals.runtime.env.DB);
     const bucket = locals.runtime.env.BUCKET;
     const worker = locals.runtime.env.WORKER;
 

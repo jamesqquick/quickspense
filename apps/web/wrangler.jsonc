@@ -17,7 +17,8 @@
     {
       "binding": "DB",
       "database_name": "quickspense-db",
-      "database_id": "640c1b1c-f15d-49be-9c0a-d7264ec49b5b"
+      "database_id": "640c1b1c-f15d-49be-9c0a-d7264ec49b5b",
+      "migrations_dir": "../../migrations"
     }
   ],
   "r2_buckets": [

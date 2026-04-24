@@ -1,8 +1,11 @@
+import { eq, desc } from "drizzle-orm";
+import type { Database } from "../db/index.js";
+import { parsedReceipts } from "../db/schema.js";
 import type { ParsedReceipt } from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export async function createParsedReceipt(
-  db: D1Database,
+  db: Database,
   params: {
     receiptId: string;
     ocrText?: string | null;
@@ -20,28 +23,21 @@ export async function createParsedReceipt(
 ): Promise<ParsedReceipt> {
   const id = crypto.randomUUID();
 
-  await db
-    .prepare(
-      `INSERT INTO parsed_receipts
-       (id, receipt_id, ocr_text, merchant, total_amount, subtotal_amount, tax_amount, tip_amount, currency, purchase_date, suggested_category, confidence_score, raw_response)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      id,
-      params.receiptId,
-      params.ocrText ?? null,
-      params.merchant ?? null,
-      params.totalAmount ?? null,
-      params.subtotalAmount ?? null,
-      params.taxAmount ?? null,
-      params.tipAmount ?? null,
-      params.currency ?? null,
-      params.purchaseDate ?? null,
-      params.suggestedCategory ?? null,
-      params.confidenceScore ?? null,
-      params.rawResponse ?? null,
-    )
-    .run();
+  await db.insert(parsedReceipts).values({
+    id,
+    receipt_id: params.receiptId,
+    ocr_text: params.ocrText ?? null,
+    merchant: params.merchant ?? null,
+    total_amount: params.totalAmount ?? null,
+    subtotal_amount: params.subtotalAmount ?? null,
+    tax_amount: params.taxAmount ?? null,
+    tip_amount: params.tipAmount ?? null,
+    currency: params.currency ?? null,
+    purchase_date: params.purchaseDate ?? null,
+    suggested_category: params.suggestedCategory ?? null,
+    confidence_score: params.confidenceScore ?? null,
+    raw_response: params.rawResponse ?? null,
+  });
 
   return {
     id,
@@ -62,20 +58,20 @@ export async function createParsedReceipt(
 }
 
 export async function getLatestParsedReceipt(
-  db: D1Database,
+  db: Database,
   receiptId: string,
 ): Promise<ParsedReceipt | null> {
-  const row = await db
-    .prepare(
-      "SELECT * FROM parsed_receipts WHERE receipt_id = ? ORDER BY created_at DESC LIMIT 1",
-    )
-    .bind(receiptId)
-    .first<ParsedReceipt>();
+  const [row] = await db
+    .select()
+    .from(parsedReceipts)
+    .where(eq(parsedReceipts.receipt_id, receiptId))
+    .orderBy(desc(parsedReceipts.created_at))
+    .limit(1);
   return row ?? null;
 }
 
 export async function updateParsedReceiptFields(
-  db: D1Database,
+  db: Database,
   parsedReceiptId: string,
   fields: {
     merchant?: string;
@@ -88,35 +84,32 @@ export async function updateParsedReceiptFields(
     suggested_category?: string | null;
   },
 ): Promise<ParsedReceipt> {
-  const setClauses: string[] = [];
-  const values: unknown[] = [];
-
+  // Filter out undefined values to build the SET clause
+  const updates: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
-      setClauses.push(`${key} = ?`);
-      values.push(value);
+      updates[key] = value;
     }
   }
 
-  if (setClauses.length === 0) {
-    const existing = await db
-      .prepare("SELECT * FROM parsed_receipts WHERE id = ?")
-      .bind(parsedReceiptId)
-      .first<ParsedReceipt>();
+  if (Object.keys(updates).length === 0) {
+    const [existing] = await db
+      .select()
+      .from(parsedReceipts)
+      .where(eq(parsedReceipts.id, parsedReceiptId));
     if (!existing) throw new NotFoundError("ParsedReceipt", parsedReceiptId);
     return existing;
   }
 
-  values.push(parsedReceiptId);
   await db
-    .prepare(`UPDATE parsed_receipts SET ${setClauses.join(", ")} WHERE id = ?`)
-    .bind(...values)
-    .run();
+    .update(parsedReceipts)
+    .set(updates)
+    .where(eq(parsedReceipts.id, parsedReceiptId));
 
-  const updated = await db
-    .prepare("SELECT * FROM parsed_receipts WHERE id = ?")
-    .bind(parsedReceiptId)
-    .first<ParsedReceipt>();
+  const [updated] = await db
+    .select()
+    .from(parsedReceipts)
+    .where(eq(parsedReceipts.id, parsedReceiptId));
   if (!updated) throw new NotFoundError("ParsedReceipt", parsedReceiptId);
   return updated;
 }
