@@ -9,8 +9,14 @@ const currentPath = Astro.url.pathname;
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F172A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Quickspense</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -33,9 +39,12 @@ const currentPath = Astro.url.pathname;
             </form>
           </div>
           <!-- Mobile menu button -->
-          <button id="app-menu-btn" class="md:hidden text-slate-300 hover:text-white cursor-pointer" aria-label="Toggle menu">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button id="app-menu-btn" class="md:hidden text-slate-300 hover:text-white cursor-pointer" aria-label="Toggle menu" aria-expanded="false">
+            <svg id="app-menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <svg id="app-menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -65,16 +74,61 @@ const currentPath = Astro.url.pathname;
         </div>
       </nav>
     )}
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-safe">
       <slot />
     </main>
+
+    {/* Mobile FAB: quick access to upload, hidden on desktop and on the upload page itself */}
+    {user && !currentPath.startsWith("/receipts/upload") && (
+      <a
+        href="/receipts/upload"
+        class="md:hidden fixed bottom-safe right-6 w-14 h-14 bg-accent-500 hover:bg-accent-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-accent-500/25 active:scale-95 transition-all duration-200 z-40"
+        aria-label="Upload receipt"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+        </svg>
+      </a>
+    )}
 
     <script>
       const btn = document.getElementById("app-menu-btn");
       const menu = document.getElementById("app-menu");
-      if (btn && menu) {
-        btn.addEventListener("click", () => {
-          menu.classList.toggle("hidden");
+      const iconOpen = document.getElementById("app-menu-icon-open");
+      const iconClose = document.getElementById("app-menu-icon-close");
+
+      function toggleMenu() {
+        if (!menu || !iconOpen || !iconClose || !btn) return;
+        const isOpen = !menu.classList.contains("hidden");
+        menu.classList.toggle("hidden");
+        iconOpen.classList.toggle("hidden");
+        iconClose.classList.toggle("hidden");
+        btn.setAttribute("aria-expanded", String(!isOpen));
+      }
+
+      if (btn) {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleMenu();
+        });
+      }
+
+      // Close menu on outside click
+      document.addEventListener("click", (e) => {
+        if (!menu || menu.classList.contains("hidden")) return;
+        const target = e.target as HTMLElement;
+        if (!menu.contains(target) && !btn?.contains(target)) {
+          toggleMenu();
+        }
+      });
+
+      // Close menu on navigation (link click)
+      if (menu) {
+        menu.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", () => {
+            if (!menu.classList.contains("hidden")) toggleMenu();
+          });
         });
       }
     </script>

@@ -4,6 +4,31 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
 
+// Camera icon SVG for the Take Photo button
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+        d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+        d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+      />
+    </svg>
+  );
+}
+
 type UploadStatus = "pending" | "uploading" | "success" | "failed";
 
 type FileItem = {
@@ -37,6 +62,7 @@ export function UploadForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [batchComplete, setBatchComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback(
     (files: File[]) => {
@@ -183,8 +209,37 @@ export function UploadForm() {
   const allSettled =
     hasItems && items.every((i) => i.status === "success" || i.status === "failed");
 
+  const canAddFiles = !isUploading && items.length < MAX_FILE_COUNT;
+
   return (
     <div className="space-y-4">
+      {/* Mobile: Take Photo button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (canAddFiles) cameraRef.current?.click();
+        }}
+        disabled={!canAddFiles}
+        className="sm:hidden w-full flex items-center justify-center gap-3 bg-accent-500 text-white px-6 py-4 rounded-2xl hover:bg-accent-600 font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      >
+        <CameraIcon className="w-6 h-6" />
+        Take Photo
+      </button>
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        disabled={isUploading}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (files.length > 0) addFiles(files);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Drop zone / file picker */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -193,11 +248,9 @@ export function UploadForm() {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => {
-          if (!isUploading && items.length < MAX_FILE_COUNT) {
-            inputRef.current?.click();
-          }
+          if (canAddFiles) inputRef.current?.click();
         }}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 ${
+        className={`border-2 border-dashed rounded-2xl p-6 sm:p-12 text-center transition-colors duration-200 ${
           isUploading || items.length >= MAX_FILE_COUNT
             ? "cursor-not-allowed opacity-60 border-white/20 bg-white/5"
             : dragOver
@@ -223,7 +276,10 @@ export function UploadForm() {
             ? "Uploading in progress..."
             : items.length >= MAX_FILE_COUNT
               ? `Maximum ${MAX_FILE_COUNT} files reached`
-              : "Drop receipt images here or click to select"}
+              : <>
+                  <span className="hidden sm:inline">Drop receipt images here or click to select</span>
+                  <span className="sm:hidden">Tap to select from gallery</span>
+                </>}
         </p>
         <p className="text-sm text-slate-500 mt-1">
           JPEG, PNG, or WEBP up to 10MB &middot; Up to {MAX_FILE_COUNT} files per batch
@@ -238,7 +294,6 @@ export function UploadForm() {
           onChange={(e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length > 0) addFiles(files);
-            // reset input so selecting the same file again still triggers change
             e.target.value = "";
           }}
         />

@@ -156,14 +156,14 @@ export function ExpenseList() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 flex-wrap items-end">
+      <div className="grid grid-cols-2 sm:flex gap-3 sm:gap-4 sm:flex-wrap sm:items-end">
         <div>
           <label className={labelClasses}>From</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
           />
         </div>
         <div>
@@ -172,15 +172,15 @@ export function ExpenseList() {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
           />
         </div>
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <label className={labelClasses}>Category</label>
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            className="px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
           >
             <option value="">All</option>
             {categories.map((c) => (

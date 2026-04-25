@@ -40,6 +40,15 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* Safe-area padding for notched devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-safe {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   html {
