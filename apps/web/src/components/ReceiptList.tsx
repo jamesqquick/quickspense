@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import type { Receipt } from "@quickspense/domain";
-import { Skeleton } from "./Skeleton";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: "bg-slate-500/20 text-slate-300",
-  processing: "bg-yellow-500/20 text-yellow-300",
-  needs_review: "bg-blue-500/20 text-blue-300",
-  finalized: "bg-green-500/20 text-green-300",
-  failed: "bg-red-500/20 text-red-300",
+type BadgeVariant = "muted" | "warning" | "info" | "success" | "destructive";
+
+const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
+  uploaded: "muted",
+  processing: "warning",
+  needs_review: "info",
+  finalized: "success",
+  failed: "destructive",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -66,16 +70,13 @@ export function ReceiptList() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="glass rounded-xl p-4 flex items-center justify-between"
-            >
+            <Card key={i} className="rounded-xl p-4 flex items-center justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="h-3 w-24" />
               </div>
               <Skeleton className="h-6 w-20 rounded-full" />
-            </div>
+            </Card>
           ))}
         </div>
       ) : receipts.length === 0 ? (
@@ -94,21 +95,21 @@ export function ReceiptList() {
             <a
               key={r.id}
               href={`/receipts/${r.id}`}
-              className="block glass rounded-xl p-4 hover:bg-white/[0.08] transition-colors duration-200 cursor-pointer"
+              className="block"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-white">{r.file_name}</p>
-                  <p className="text-sm text-slate-500">
-                    {new Date(r.created_at).toLocaleDateString()}
-                  </p>
+              <Card className="rounded-xl p-4 hover:bg-white/[0.08] transition-colors duration-200 cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-white">{r.file_name}</p>
+                    <p className="text-sm text-slate-500">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant={STATUS_BADGE_VARIANT[r.status] ?? "muted"}>
+                    {STATUS_LABELS[r.status] || r.status}
+                  </Badge>
                 </div>
-                <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[r.status] || ""}`}
-                >
-                  {STATUS_LABELS[r.status] || r.status}
-                </span>
-              </div>
+              </Card>
             </a>
           ))}
         </div>

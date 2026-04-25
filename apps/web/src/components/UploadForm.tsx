@@ -1,33 +1,11 @@
 import { useState, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Camera, Upload, X, Check, AlertTriangle } from "lucide-react";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
-
-// Camera icon SVG for the Take Photo button
-function CameraIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-      />
-    </svg>
-  );
-}
 
 type UploadStatus = "pending" | "uploading" | "success" | "failed";
 
@@ -172,7 +150,6 @@ export function UploadForm() {
     setError(null);
     setBatchComplete(false);
 
-    // Mark all pending as uploading visually one-at-a-time as we go
     for (const item of pending) {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, status: "uploading" } : i)),
@@ -214,17 +191,17 @@ export function UploadForm() {
   return (
     <div className="space-y-4">
       {/* Mobile: Take Photo button */}
-      <button
+      <Button
         type="button"
         onClick={() => {
           if (canAddFiles) cameraRef.current?.click();
         }}
         disabled={!canAddFiles}
-        className="sm:hidden w-full flex items-center justify-center gap-3 bg-accent-500 text-white px-6 py-4 rounded-2xl hover:bg-accent-600 font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        className="sm:hidden w-full py-4 text-base"
       >
-        <CameraIcon className="w-6 h-6" />
+        <Camera className="size-6" />
         Take Photo
-      </button>
+      </Button>
       <input
         ref={cameraRef}
         type="file"
@@ -258,19 +235,7 @@ export function UploadForm() {
               : "cursor-pointer border-white/20 hover:border-white/30 bg-white/5"
         }`}
       >
-        <svg
-          className="w-10 h-10 text-slate-500 mx-auto mb-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-          />
-        </svg>
+        <Upload className="size-10 text-slate-500 mx-auto mb-3" />
         <p className="text-slate-300 font-medium">
           {isUploading
             ? "Uploading in progress..."
@@ -311,56 +276,45 @@ export function UploadForm() {
       {hasItems && (
         <ul className="space-y-2">
           {items.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-center gap-3 glass rounded-xl p-3"
-            >
-              <img
-                src={item.preview}
-                alt=""
-                className="w-12 h-12 rounded-lg object-cover bg-black/20 flex-shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-200 truncate">
-                  {item.file.name}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {formatSize(item.file.size)}
-                  {item.status === "failed" && item.error && (
-                    <span className="text-red-400"> &middot; {item.error}</span>
-                  )}
-                </p>
-              </div>
-              <StatusBadge status={item.status} />
-              {item.status === "failed" && !isUploading && (
-                <button
-                  onClick={() => handleRetry(item.id)}
-                  className="text-xs text-accent-400 hover:text-accent-300 font-semibold px-2 py-1 rounded cursor-pointer"
-                >
-                  Retry
-                </button>
-              )}
-              {!isUploading && item.status !== "success" && (
-                <button
-                  onClick={() => removeItem(item.id)}
-                  aria-label={`Remove ${item.file.name}`}
-                  className="text-slate-500 hover:text-slate-300 cursor-pointer"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+            <li key={item.id}>
+              <Card className="rounded-xl p-3 flex items-center gap-3">
+                <img
+                  src={item.preview}
+                  alt=""
+                  className="w-12 h-12 rounded-lg object-cover bg-black/20 flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-200 truncate">
+                    {item.file.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {formatSize(item.file.size)}
+                    {item.status === "failed" && item.error && (
+                      <span className="text-red-400"> &middot; {item.error}</span>
+                    )}
+                  </p>
+                </div>
+                <StatusBadge status={item.status} />
+                {item.status === "failed" && !isUploading && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => handleRetry(item.id)}
+                    className="text-xs px-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
+                    Retry
+                  </Button>
+                )}
+                {!isUploading && item.status !== "success" && (
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    aria-label={`Remove ${item.file.name}`}
+                    className="text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+              </Card>
             </li>
           ))}
         </ul>
@@ -369,8 +323,8 @@ export function UploadForm() {
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
       {batchComplete && allSettled && (
-        <div className="glass rounded-xl p-3 text-sm">
-          <p className="text-slate-200">
+        <Card className="rounded-xl p-3">
+          <p className="text-sm text-slate-200">
             {successCount} of {items.length} uploaded successfully
             {failedCount > 0 && (
               <span className="text-red-400">
@@ -379,28 +333,25 @@ export function UploadForm() {
               </span>
             )}
           </p>
-        </div>
+        </Card>
       )}
 
       <div className="flex gap-3">
-        <button
+        <Button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex-1 bg-accent-500 text-white py-2.5 px-4 rounded-xl hover:bg-accent-600 font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="flex-1"
         >
           {isUploading
             ? "Uploading..."
             : pendingCount > 0
               ? `Upload ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
               : "Upload"}
-        </button>
+        </Button>
         {batchComplete && successCount > 0 && (
-          <a
-            href="/receipts"
-            className="flex-1 bg-primary-500 text-white py-2.5 px-4 rounded-xl hover:bg-primary-600 font-semibold transition-colors duration-200 text-center cursor-pointer"
-          >
-            View Receipts
-          </a>
+          <Button variant="outline" asChild className="flex-1">
+            <a href="/receipts">View Receipts</a>
+          </Button>
         )}
       </div>
     </div>
@@ -414,7 +365,7 @@ function StatusBadge({ status }: { status: UploadStatus }) {
   if (status === "uploading") {
     return (
       <svg
-        className="w-4 h-4 text-accent-400 animate-spin"
+        className="size-4 text-accent-400 animate-spin"
         fill="none"
         viewBox="0 0 24 24"
       >
@@ -435,35 +386,7 @@ function StatusBadge({ status }: { status: UploadStatus }) {
     );
   }
   if (status === "success") {
-    return (
-      <svg
-        className="w-5 h-5 text-green-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 13l4 4L19 7"
-        />
-      </svg>
-    );
+    return <Check className="size-5 text-green-400" />;
   }
-  return (
-    <svg
-      className="w-5 h-5 text-red-400"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.34 16a2 2 0 001.73 3z"
-      />
-    </svg>
-  );
+  return <AlertTriangle className="size-5 text-red-400" />;
 }

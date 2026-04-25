@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import type { Receipt, ParsedReceipt } from "@quickspense/domain";
-import { Skeleton } from "./Skeleton";
+import { categories as categoriesService } from "@quickspense/domain";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   receiptId: string;
@@ -17,23 +23,22 @@ function parseCents(value: string): number | null {
   return Math.round(num * 100);
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: "bg-slate-500/20 text-slate-300",
-  processing: "bg-yellow-500/20 text-yellow-300",
-  needs_review: "bg-blue-500/20 text-blue-300",
-  finalized: "bg-green-500/20 text-green-300",
-  failed: "bg-red-500/20 text-red-300",
+type BadgeVariant = "muted" | "warning" | "info" | "success" | "destructive";
+
+const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
+  uploaded: "muted",
+  processing: "warning",
+  needs_review: "info",
+  finalized: "success",
+  failed: "destructive",
 };
 
 export function ReceiptReview({ receiptId }: Props) {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [reprocessing, setReprocessing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [showOcr, setShowOcr] = useState(false);
 
   // Editable fields
   const [merchant, setMerchant] = useState("");
@@ -112,60 +117,6 @@ export function ReceiptReview({ receiptId }: Props) {
     };
   }, [receipt?.status]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/receipts/${receiptId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          merchant: merchant || undefined,
-          total_amount: parseCents(total) ?? undefined,
-          subtotal_amount: parseCents(subtotal),
-          tax_amount: parseCents(tax),
-          tip_amount: parseCents(tip),
-          currency: currency || undefined,
-          purchase_date: date || undefined,
-          suggested_category: category || null,
-        }),
-      });
-      if (res.ok) {
-        setMessage({ type: "success", text: "Changes saved" });
-        const updated = await res.json();
-        setParsed(updated);
-      } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error || "Save failed" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "Save failed" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReprocess = async () => {
-    setReprocessing(true);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/receipts/${receiptId}/reprocess`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        setMessage({ type: "success", text: "Reprocessing started" });
-        await fetchData();
-      } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error || "Reprocess failed" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "Reprocess failed" });
-    } finally {
-      setReprocessing(false);
-    }
-  };
-
   const handleFinalize = async () => {
     if (!merchant || !total || !date) {
       setMessage({
@@ -207,10 +158,7 @@ export function ReceiptReview({ receiptId }: Props) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Image placeholder */}
         <Skeleton className="w-full aspect-[3/4] rounded-2xl" />
-
-        {/* Form fields placeholder */}
         <div className="space-y-6">
           <Skeleton className="h-7 w-28 rounded-full" />
           <div className="space-y-4">
@@ -239,11 +187,7 @@ export function ReceiptReview({ receiptId }: Props) {
               <Skeleton className="h-10 w-full" />
             </div>
           </div>
-          <div className="flex gap-3">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-24" />
-          </div>
+          <Skeleton className="h-9 w-full sm:w-24" />
         </div>
       </div>
     );
@@ -254,12 +198,7 @@ export function ReceiptReview({ receiptId }: Props) {
   }
 
   const isEditable = receipt.status === "needs_review";
-  const canReprocess = ["needs_review", "failed"].includes(receipt.status);
   const canFinalize = receipt.status === "needs_review";
-
-  const inputClasses =
-    "w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent disabled:bg-white/5 disabled:text-slate-500 disabled:border-white/10";
-  const labelClasses = "block text-sm font-medium text-slate-300 mb-1";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -276,11 +215,9 @@ export function ReceiptReview({ receiptId }: Props) {
       <div className="space-y-6">
         {/* Status badge */}
         <div className="flex items-center gap-3">
-          <span
-            className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[receipt.status] || ""}`}
-          >
+          <Badge variant={STATUS_BADGE_VARIANT[receipt.status] ?? "muted"} className="px-3 py-1 text-sm">
             {receipt.status.replace("_", " ")}
-          </span>
+          </Badge>
           {receipt.error_message && (
             <span className="text-sm text-red-400">{receipt.error_message}</span>
           )}
@@ -318,12 +255,9 @@ export function ReceiptReview({ receiptId }: Props) {
                 <p className="text-sm text-slate-500 mb-4">
                   This is taking longer than expected. Refresh the page later to check status.
                 </p>
-                <button
-                  onClick={fetchData}
-                  className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200 cursor-pointer"
-                >
+                <Button variant="link" onClick={fetchData}>
                   Check now
-                </button>
+                </Button>
               </>
             ) : (
               <>
@@ -335,91 +269,87 @@ export function ReceiptReview({ receiptId }: Props) {
         ) : (
           <div className="space-y-4">
             <div>
-              <label className={labelClasses}>Merchant</label>
-              <input
+              <Label>Merchant</Label>
+              <Input
                 type="text"
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
                 disabled={!isEditable}
-                className={inputClasses}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelClasses}>Total ($)</label>
-                <input
+                <Label>Total ($)</Label>
+                <Input
                   type="text"
                   value={total}
                   onChange={(e) => setTotal(e.target.value)}
                   disabled={!isEditable}
-                  className={inputClasses}
                 />
               </div>
               <div>
-                <label className={labelClasses}>Subtotal ($)</label>
-                <input
+                <Label>Subtotal ($)</Label>
+                <Input
                   type="text"
                   value={subtotal}
                   onChange={(e) => setSubtotal(e.target.value)}
                   disabled={!isEditable}
-                  className={inputClasses}
                 />
               </div>
               <div>
-                <label className={labelClasses}>Tax ($)</label>
-                <input
+                <Label>Tax ($)</Label>
+                <Input
                   type="text"
                   value={tax}
                   onChange={(e) => setTax(e.target.value)}
                   disabled={!isEditable}
-                  className={inputClasses}
                 />
               </div>
               <div>
-                <label className={labelClasses}>Tip ($)</label>
-                <input
+                <Label>Tip ($)</Label>
+                <Input
                   type="text"
                   value={tip}
                   onChange={(e) => setTip(e.target.value)}
                   disabled={!isEditable}
-                  className={inputClasses}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={labelClasses}>Currency</label>
-                <input
+                <Label>Currency</Label>
+                <Input
                   type="text"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   disabled={!isEditable}
                   maxLength={3}
-                  className={inputClasses}
                 />
               </div>
               <div>
-                <label className={labelClasses}>Date</label>
-                <input
+                <Label>Date</Label>
+                <Input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   disabled={!isEditable}
-                  className={inputClasses}
                 />
               </div>
             </div>
             <div>
-              <label className={labelClasses}>
-                Suggested Category
-              </label>
-              <input
-                type="text"
+              <Label>Category</Label>
+              <NativeSelect
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 disabled={!isEditable}
-                className={inputClasses}
-              />
+              >
+                <option value="">Select a category</option>
+                {categoriesService.DEFAULT_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </NativeSelect>
             </div>
           </div>
         )}
@@ -434,50 +364,16 @@ export function ReceiptReview({ receiptId }: Props) {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 flex-wrap">
-          {isEditable && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-white/10 text-white px-4 py-2 rounded-xl hover:bg-white/20 text-sm font-medium disabled:opacity-50 transition-colors duration-200 cursor-pointer"
-            >
-              {saving ? "Saving..." : "Save Edits"}
-            </button>
-          )}
-          {canReprocess && (
-            <button
-              onClick={handleReprocess}
-              disabled={reprocessing}
-              className="bg-yellow-500/20 text-yellow-300 px-4 py-2 rounded-xl hover:bg-yellow-500/30 text-sm font-medium disabled:opacity-50 transition-colors duration-200 cursor-pointer"
-            >
-              {reprocessing ? "Reprocessing..." : "Reprocess"}
-            </button>
-          )}
-          {canFinalize && (
-            <button
+        {canFinalize && (
+          <div>
+            <Button
+              variant="success"
               onClick={handleFinalize}
               disabled={finalizing}
-              className="bg-green-500/20 text-green-300 px-4 py-2 rounded-xl hover:bg-green-500/30 text-sm font-medium disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+              className="w-full sm:w-auto"
             >
               {finalizing ? "Finalizing..." : "Finalize"}
-            </button>
-          )}
-        </div>
-
-        {/* OCR Text collapsible */}
-        {parsed?.ocr_text && (
-          <div>
-            <button
-              onClick={() => setShowOcr(!showOcr)}
-              className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200 cursor-pointer"
-            >
-              {showOcr ? "Hide OCR Text" : "Show OCR Text"}
-            </button>
-            {showOcr && (
-              <pre className="mt-2 p-3 bg-white/5 rounded-xl text-xs text-slate-300 whitespace-pre-wrap max-h-64 overflow-y-auto border border-white/10">
-                {parsed.ocr_text}
-              </pre>
-            )}
+            </Button>
           </div>
         )}
       </div>

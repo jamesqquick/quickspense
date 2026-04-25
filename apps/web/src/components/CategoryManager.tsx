@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import type { Category } from "@quickspense/domain";
-import { Skeleton } from "./Skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -107,16 +110,13 @@ export function CategoryManager() {
         </div>
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between glass rounded-xl p-3"
-            >
+            <Card key={i} className="rounded-xl p-3 flex items-center justify-between">
               <Skeleton className="h-4 w-28" />
               <div className="flex gap-3">
                 <Skeleton className="h-4 w-10" />
                 <Skeleton className="h-4 w-12" />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -126,29 +126,25 @@ export function CategoryManager() {
     <div className="space-y-6">
       {/* Create form */}
       <form onSubmit={handleCreate} className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New category name"
-          className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+          className="flex-1"
         />
-        <button
-          type="submit"
-          className="bg-accent-500 text-white px-4 py-2 rounded-xl hover:bg-accent-600 font-medium text-sm transition-colors duration-200 cursor-pointer"
-        >
-          Add
-        </button>
+        <Button type="submit">Add</Button>
       </form>
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
+          variant="link"
           onClick={handleSeedDefaults}
           disabled={seeding}
-          className="text-sm text-primary-400 hover:text-primary-300 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+          className="text-sm px-0"
         >
           {seeding ? "Loading..." : "Load default categories"}
-        </button>
+        </Button>
         <span className="text-xs text-slate-500">
           Adds common categories (skips any that already exist)
         </span>
@@ -162,55 +158,52 @@ export function CategoryManager() {
       ) : (
         <div className="space-y-2">
           {categories.map((cat) => (
-            <div
+            <Card
               key={cat.id}
-              className="flex items-center justify-between glass rounded-xl p-3"
+              className="rounded-xl p-3 flex items-center justify-between"
             >
               {editingId === cat.id ? (
                 <div className="flex gap-2 flex-1">
-                  <input
+                  <Input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+                    className="flex-1 py-1"
                     autoFocus
                   />
-                  <button
-                    onClick={() => handleUpdate(cat.id)}
-                    className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200 cursor-pointer"
-                  >
+                  <Button variant="link" size="sm" onClick={() => handleUpdate(cat.id)}>
                     Save
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="text-sm text-slate-400 hover:text-slate-300 transition-colors duration-200 cursor-pointer"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <>
                   <span className="text-white">{cat.name}</span>
                   <div className="flex gap-3">
-                    <button
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => {
                         setEditingId(cat.id);
                         setEditName(cat.name);
                       }}
-                      className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200 cursor-pointer"
                     >
                       Edit
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
                       onClick={() => handleDelete(cat.id)}
-                      className="text-sm text-red-400 hover:text-red-300 transition-colors duration-200 cursor-pointer"
+                      className="text-red-400 hover:text-red-300"
                     >
                       Delete
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}

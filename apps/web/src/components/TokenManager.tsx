@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { Skeleton } from "./Skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ApiToken = { id: string; name: string; created_at: string };
 
@@ -78,16 +81,13 @@ export function TokenManager() {
         </div>
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between glass rounded-xl p-3"
-            >
+            <Card key={i} className="rounded-xl p-3 flex items-center justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-4 w-36" />
                 <Skeleton className="h-3 w-28" />
               </div>
               <Skeleton className="h-4 w-14" />
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -102,34 +102,30 @@ export function TokenManager() {
 
       {/* Create form */}
       <form onSubmit={handleCreate} className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Token name (e.g., Claude Desktop)"
-          className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent text-sm"
+          className="flex-1"
         />
-        <button
-          type="submit"
-          disabled={creating}
-          className="bg-accent-500 text-white px-4 py-2 rounded-xl hover:bg-accent-600 font-medium text-sm disabled:opacity-50 transition-colors duration-200 cursor-pointer"
-        >
+        <Button type="submit" disabled={creating}>
           {creating ? "Creating..." : "Create Token"}
-        </button>
+        </Button>
       </form>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
       {/* Show newly created token */}
       {newToken && (
-        <div className="glass rounded-2xl p-4 border-green-500/30" style={{ borderColor: "rgba(34, 197, 94, 0.3)" }}>
+        <Card className="p-4" style={{ borderColor: "rgba(34, 197, 94, 0.3)" }}>
           <p className="text-sm font-medium text-green-400 mb-2">
             Token created. Copy it now -- it won't be shown again.
           </p>
           <code className="block bg-white/10 border border-white/20 rounded-xl p-3 text-sm text-white break-all select-all">
             {newToken}
           </code>
-        </div>
+        </Card>
       )}
 
       {/* Token list */}
@@ -138,9 +134,9 @@ export function TokenManager() {
       ) : (
         <div className="space-y-2">
           {tokens.map((t) => (
-            <div
+            <Card
               key={t.id}
-              className="flex items-center justify-between glass rounded-xl p-3"
+              className="rounded-xl p-3 flex items-center justify-between"
             >
               <div>
                 <p className="font-medium text-white text-sm">{t.name}</p>
@@ -148,13 +144,15 @@ export function TokenManager() {
                   Created {new Date(t.created_at).toLocaleDateString()}
                 </p>
               </div>
-              <button
+              <Button
+                variant="link"
+                size="sm"
                 onClick={() => handleDelete(t.id)}
-                className="text-sm text-red-400 hover:text-red-300 transition-colors duration-200 cursor-pointer"
+                className="text-red-400 hover:text-red-300"
               >
                 Revoke
-              </button>
-            </div>
+              </Button>
+            </Card>
           ))}
         </div>
       )}

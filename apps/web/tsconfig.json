@@ -3,6 +3,10 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "types": ["@cloudflare/workers-types/2023-07-01"]
   },
   "include": ["src/**/*", "env.d.ts"]

@@ -1,5 +1,9 @@
 import { useState } from "react";
 import type { Category } from "@quickspense/domain";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 
 export type ExpenseFormValues = {
   merchant: string;
@@ -18,9 +22,6 @@ type ExpenseFormProps = {
   submitLabel: string;
   submittingLabel: string;
 };
-
-const inputClasses =
-  "w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent text-sm";
 
 const defaultValues: ExpenseFormValues = {
   merchant: "",
@@ -73,50 +74,42 @@ export function ExpenseForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Merchant
-          </label>
-          <input
+          <Label htmlFor="merchant">Merchant</Label>
+          <Input
+            id="merchant"
             type="text"
             value={values.merchant}
             onChange={set("merchant")}
             required
-            className={inputClasses}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Amount ($)
-          </label>
-          <input
+          <Label htmlFor="amount">Amount ($)</Label>
+          <Input
+            id="amount"
             type="number"
             step="0.01"
             value={values.amount}
             onChange={set("amount")}
             required
-            className={inputClasses}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Date
-          </label>
-          <input
+          <Label htmlFor="expense_date">Date</Label>
+          <Input
+            id="expense_date"
             type="date"
             value={values.expense_date}
             onChange={set("expense_date")}
             required
-            className={inputClasses}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Category
-          </label>
-          <select
+          <Label htmlFor="category_id">Category</Label>
+          <NativeSelect
+            id="category_id"
             value={values.category_id}
             onChange={set("category_id")}
-            className={inputClasses}
           >
             <option value="">None</option>
             {categories.map((c) => (
@@ -124,37 +117,27 @@ export function ExpenseForm({
                 {c.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
-          Notes
-        </label>
-        <input
+        <Label htmlFor="notes">Notes</Label>
+        <Input
+          id="notes"
           type="text"
           value={values.notes}
           onChange={set("notes")}
-          className={inputClasses}
         />
       </div>
       {error && <p className="text-red-400 text-sm">{error}</p>}
       <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-green-500/20 text-green-300 px-4 py-2 rounded-xl hover:bg-green-500/30 text-sm font-medium disabled:opacity-50 transition-colors duration-200 cursor-pointer"
-        >
+        <Button type="submit" variant="success" disabled={submitting}>
           {submitting ? submittingLabel : submitLabel}
-        </button>
+        </Button>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-slate-400 px-4 py-2 rounded-xl hover:bg-white/10 text-sm font-medium transition-colors duration-200 cursor-pointer"
-          >
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </form>

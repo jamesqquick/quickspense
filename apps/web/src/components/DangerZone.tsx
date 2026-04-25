@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function DangerZone({ userEmail }: { userEmail: string }) {
   const [confirmText, setConfirmText] = useState("");
@@ -39,21 +41,21 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
       <p className="text-sm text-red-300/80 mb-2">
         Type your email (<code className="bg-white/10 px-1.5 py-0.5 rounded text-red-300">{userEmail}</code>) to confirm:
       </p>
-      <input
+      <Input
         type="text"
         value={confirmText}
         onChange={(e) => setConfirmText(e.target.value)}
         placeholder={userEmail}
-        className="w-full px-3 py-2 bg-white/5 border border-red-500/30 rounded-xl text-white placeholder-slate-500 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+        className="bg-white/5 border-red-500/30 mb-3 focus:ring-red-500"
       />
       {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
-      <button
+      <Button
+        variant="destructive-solid"
         onClick={handleDelete}
         disabled={!canDelete || deleting}
-        className="bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 cursor-pointer"
       >
         {deleting ? "Deleting..." : "Delete My Account"}
-      </button>
+      </Button>
     </div>
   );
 }

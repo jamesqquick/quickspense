@@ -1,6 +1,11 @@
-import { useEffect, useRef } from "react";
 import type { Expense, Category } from "@quickspense/domain";
 import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ExpenseEditModalProps = {
   expense: Expense;
@@ -19,20 +24,6 @@ export function ExpenseEditModal({
   onSave,
   onClose,
 }: ExpenseEditModalProps) {
-  const backdropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === backdropRef.current) onClose();
-  };
-
   const initialValues: ExpenseFormValues = {
     merchant: expense.merchant,
     amount: formatCents(expense.amount),
@@ -68,13 +59,11 @@ export function ExpenseEditModal({
   };
 
   return (
-    <div
-      ref={backdropRef}
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-    >
-      <div className="glass rounded-2xl p-6 w-full max-w-lg border border-white/10">
-        <h2 className="text-lg font-semibold text-white mb-4">Edit Expense</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Expense</DialogTitle>
+        </DialogHeader>
         <ExpenseForm
           categories={categories}
           initialValues={initialValues}
@@ -83,7 +72,7 @@ export function ExpenseEditModal({
           submitLabel="Save Changes"
           submittingLabel="Saving..."
         />
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
