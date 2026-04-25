@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Receipt, ParsedReceipt } from "@quickspense/domain";
-import { categories as categoriesService } from "@quickspense/domain";
+import type { Receipt, ParsedReceipt, Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +48,7 @@ export function ReceiptReview({ receiptId }: Props) {
   const [currency, setCurrency] = useState("USD");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -67,7 +67,7 @@ export function ReceiptReview({ receiptId }: Props) {
         setTip(formatCents(data.parsed.tip_amount));
         setCurrency(data.parsed.currency || "USD");
         setDate(data.parsed.purchase_date || "");
-        setCategory(data.parsed.suggested_category || "");
+        // category is resolved to an ID after categories are fetched
       }
     } catch {
       setMessage({ type: "error", text: "Failed to load receipt" });
@@ -77,7 +77,28 @@ export function ReceiptReview({ receiptId }: Props) {
   };
 
   useEffect(() => {
-    fetchData();
+    // Fetch categories first so we can resolve suggested_category name -> id
+    fetch("/api/categories")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Category[]) => {
+        setCategoryList(data);
+        // Now fetch receipt data
+        fetchData().then(() => {
+          // After parsed data is loaded, try to resolve suggested_category to an id
+          setParsed((prev) => {
+            if (prev?.suggested_category) {
+              const match = data.find(
+                (c) => c.name.toLowerCase() === prev.suggested_category?.toLowerCase(),
+              );
+              if (match) setCategory(match.id);
+            }
+            return prev;
+          });
+        });
+      })
+      .catch(() => {
+        fetchData();
+      });
   }, [receiptId]);
 
   // Poll when processing with exponential backoff.
@@ -137,7 +158,7 @@ export function ReceiptReview({ receiptId }: Props) {
           amount: parseCents(total),
           currency,
           expense_date: date,
-          category_id: undefined,
+          category_id: category || undefined,
           notes: undefined,
         }),
       });
@@ -348,9 +369,9 @@ export function ReceiptReview({ receiptId }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Select a category</SelectItem>
-                  {categoriesService.DEFAULT_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {categoryList.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

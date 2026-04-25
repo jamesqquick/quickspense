@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -12,7 +13,6 @@ export function CategoryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -82,24 +82,8 @@ export function CategoryManager() {
     }
   };
 
-  const handleSeedDefaults = async () => {
-    setSeeding(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/categories/seed", { method: "POST" });
-      if (res.ok) {
-        setCategories(await res.json());
-      } else {
-        const data = await res.json();
-        setError(data.error || "Failed to load default categories");
-      }
-    } catch {
-      setError("Failed to load default categories");
-    } finally {
-      setSeeding(false);
-    }
-  };
+  const globalCategories = categories.filter((c) => c.is_global);
+  const customCategories = categories.filter((c) => !c.is_global);
 
   if (loading)
     return (
@@ -124,40 +108,45 @@ export function CategoryManager() {
 
   return (
     <div className="space-y-6">
-      {/* Create form */}
+      {/* Create custom category form */}
       <form onSubmit={handleCreate} className="flex gap-2">
         <Input
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="New category name"
+          placeholder="New custom category name"
           className="flex-1"
         />
         <Button type="submit">Add</Button>
       </form>
 
-      <div className="flex items-center gap-3">
-        <Button
-          variant="link"
-          onClick={handleSeedDefaults}
-          disabled={seeding}
-          className="text-sm px-0"
-        >
-          {seeding ? "Loading..." : "Load default categories"}
-        </Button>
-        <span className="text-xs text-slate-500">
-          Adds common categories (skips any that already exist)
-        </span>
-      </div>
-
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
-      {/* List */}
-      {categories.length === 0 ? (
-        <p className="text-slate-500 text-center py-8">No categories yet. Create one above.</p>
-      ) : (
+      {/* Default categories */}
+      {globalCategories.length > 0 && (
         <div className="space-y-2">
-          {categories.map((cat) => (
+          <h3 className="text-sm font-medium text-slate-400">Default Categories</h3>
+          {globalCategories.map((cat) => (
+            <Card
+              key={cat.id}
+              className="rounded-xl p-3 flex items-center justify-between"
+            >
+              <span className="text-white">{cat.name}</span>
+              <Badge variant="secondary" className="text-xs">Default</Badge>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Custom categories */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-slate-400">Custom Categories</h3>
+        {customCategories.length === 0 ? (
+          <p className="text-slate-500 text-center py-4">
+            No custom categories yet. Add one above.
+          </p>
+        ) : (
+          customCategories.map((cat) => (
             <Card
               key={cat.id}
               className="rounded-xl p-3 flex items-center justify-between"
@@ -204,9 +193,9 @@ export function CategoryManager() {
                 </>
               )}
             </Card>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }

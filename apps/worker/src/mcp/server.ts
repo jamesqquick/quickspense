@@ -8,6 +8,7 @@ import {
   ConflictError,
   NotFoundError,
   InvalidStateTransitionError,
+  ForbiddenError,
 } from "@quickspense/domain";
 import type { Database } from "@quickspense/domain";
 import type { Env } from "../index.js";
@@ -40,7 +41,8 @@ async function runTool<T>(
     if (
       e instanceof NotFoundError ||
       e instanceof ConflictError ||
-      e instanceof InvalidStateTransitionError
+      e instanceof InvalidStateTransitionError ||
+      e instanceof ForbiddenError
     ) {
       return errorResponse(e.message);
     }

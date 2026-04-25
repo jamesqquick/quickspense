@@ -41,6 +41,13 @@ export class UnauthorizedError extends DomainError {
   }
 }
 
+export class ForbiddenError extends DomainError {
+  constructor(message = "Forbidden") {
+    super(message, "FORBIDDEN", 403);
+    this.name = "ForbiddenError";
+  }
+}
+
 export class InvalidStateTransitionError extends DomainError {
   constructor(from: string, to: string) {
     super(

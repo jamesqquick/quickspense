@@ -1,6 +1,34 @@
 import type { APIRoute } from "astro";
 import { categories, updateCategorySchema, createDb } from "@quickspense/domain";
 
+function errorResponse(e: unknown, fallbackMsg: string) {
+  if (e instanceof Error) {
+    if (e.name === "NotFoundError") {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (e.name === "ConflictError") {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (e.name === "ForbiddenError") {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+  console.error(fallbackMsg, e);
+  return new Response(
+    JSON.stringify({ error: "Internal server error" }),
+    { status: 500, headers: { "Content-Type": "application/json" } },
+  );
+}
+
 export const PATCH: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user!;
@@ -21,23 +49,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: unknown) {
-    if (e instanceof Error && e.name === "NotFoundError") {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    if (e instanceof Error && e.name === "ConflictError") {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 409,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    console.error("Update category error:", e);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return errorResponse(e, "Update category error:");
   }
 };
 
@@ -52,16 +64,6 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: unknown) {
-    if (e instanceof Error && e.name === "NotFoundError") {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    console.error("Delete category error:", e);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return errorResponse(e, "Delete category error:");
   }
 };

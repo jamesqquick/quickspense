@@ -6,9 +6,9 @@ export const POST: APIRoute = async ({ locals }) => {
     const user = locals.user!;
     const db = createDb(locals.runtime.env.DB);
 
-    await categories.seedDefaultCategories(db, user.id);
+    await categories.seedGlobalCategories(db);
 
-    // Return the full updated list
+    // Return the full updated list (global + user's custom)
     const list = await categories.listCategories(db, user.id);
     return new Response(JSON.stringify(list), {
       headers: { "Content-Type": "application/json" },

@@ -76,15 +76,14 @@ export const categories = sqliteTable(
   "categories",
   {
     id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    user_id: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    is_global: integer("is_global", { mode: "boolean" }).notNull().default(false),
     created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_categories_user").on(table.user_id),
-    unique().on(table.user_id, table.name),
+    uniqueIndex("idx_categories_global_name").on(table.name).where(sql`is_global = 1`),
   ],
 );
 

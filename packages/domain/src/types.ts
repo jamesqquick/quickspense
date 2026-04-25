@@ -29,8 +29,9 @@ export type ApiToken = {
 
 export type Category = {
   id: string;
-  user_id: string;
+  user_id: string | null;
   name: string;
+  is_global: boolean;
   created_at: string;
 };
 
