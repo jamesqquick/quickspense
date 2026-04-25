@@ -3,7 +3,7 @@ import type { Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 export type ExpenseFormValues = {
   merchant: string;
@@ -105,19 +105,25 @@ export function ExpenseForm({
           />
         </div>
         <div>
-          <Label htmlFor="category_id">Category</Label>
-          <NativeSelect
-            id="category_id"
-            value={values.category_id}
-            onChange={set("category_id")}
+          <Label>Category</Label>
+          <Select
+            value={values.category_id || "__none__"}
+            onValueChange={(v) =>
+              setValues((prev) => ({ ...prev, category_id: v === "__none__" ? "" : v }))
+            }
           >
-            <option value="">None</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger>
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div>

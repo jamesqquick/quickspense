@@ -4,7 +4,7 @@ import { categories as categoriesService } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -338,18 +338,23 @@ export function ReceiptReview({ receiptId }: Props) {
             </div>
             <div>
               <Label>Category</Label>
-              <NativeSelect
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+              <Select
+                value={category || "__none__"}
+                onValueChange={(v) => setCategory(v === "__none__" ? "" : v)}
                 disabled={!isEditable}
               >
-                <option value="">Select a category</option>
-                {categoriesService.DEFAULT_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </NativeSelect>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Select a category</SelectItem>
+                  {categoriesService.DEFAULT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}

@@ -6,7 +6,7 @@ import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pencil, Trash2, Search, X } from "lucide-react";
@@ -161,17 +161,22 @@ export function ExpenseList() {
         </div>
         <div className="col-span-2 sm:col-span-1">
           <Label className="text-xs text-slate-400">Category</Label>
-          <NativeSelect
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+          <Select
+            value={categoryId || "__all__"}
+            onValueChange={(v) => setCategoryId(v === "__all__" ? "" : v)}
           >
-            <option value="">All</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger>
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancel" : "Add Expense"}
