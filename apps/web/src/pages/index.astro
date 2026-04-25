@@ -1,5 +1,9 @@
 ---
 import LandingLayout from "../layouts/LandingLayout.astro";
+
+if (Astro.locals.user) {
+  return Astro.redirect("/dashboard");
+}
 ---
 
 <LandingLayout>
