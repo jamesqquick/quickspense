@@ -28,11 +28,11 @@ const currentPath = Astro.url.pathname;
           <a href="/" class="text-xl font-bold text-white tracking-tight">Quickspense</a>
           <!-- Desktop nav -->
           <div class="hidden md:flex items-center gap-6">
-            <a href="/dashboard" class:list={["text-sm transition-colors duration-200", currentPath === "/dashboard" ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
-            <a href="/receipts" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
-            <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
-            <a href="/categories" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/categories") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
-            <a href="/settings" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/settings") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
+            <a href="/dashboard" class:list={["text-sm transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
+            <a href="/receipts" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
+            <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+            <a href="/categories" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
+            <a href="/settings" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
             <span class="text-sm text-slate-500">{user.email}</span>
             <form method="POST" action="/api/auth/logout">
               <button type="submit" class="text-sm text-red-400 hover:text-red-300 transition-colors duration-200 cursor-pointer">Logout</button>
@@ -50,11 +50,11 @@ const currentPath = Astro.url.pathname;
         </div>
         <!-- Mobile menu -->
         <div id="app-menu" class="hidden md:hidden px-4 pb-4 space-y-1">
-          <a href="/dashboard" class:list={["block text-sm py-2 transition-colors duration-200", currentPath === "/dashboard" ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
-          <a href="/receipts" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
-          <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
-          <a href="/categories" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/categories") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
-          <a href="/settings" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/settings") ? "text-primary-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
+          <a href="/dashboard" class:list={["block text-sm py-2 transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
+          <a href="/receipts" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
+          <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+          <a href="/categories" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
+          <a href="/settings" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
           <div class="pt-2 border-t border-white/10 flex items-center justify-between">
             <span class="text-sm text-slate-500">{user.email}</span>
             <form method="POST" action="/api/auth/logout">
