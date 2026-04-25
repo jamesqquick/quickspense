@@ -21,6 +21,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     startDate: url.searchParams.get("startDate") || undefined,
     endDate: url.searchParams.get("endDate") || undefined,
     categoryId: url.searchParams.get("categoryId") || undefined,
+    search: url.searchParams.get("search") || undefined,
     limit: 100,
     offset: 0,
   });

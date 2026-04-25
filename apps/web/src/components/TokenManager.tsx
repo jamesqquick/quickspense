@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Skeleton } from "./Skeleton";
 
 type ApiToken = { id: string; name: string; created_at: string };
 
@@ -67,7 +68,30 @@ export function TokenManager() {
     }
   };
 
-  if (loading) return <p className="text-slate-400">Loading...</p>;
+  if (loading)
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-4 w-72" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-28" />
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between glass rounded-xl p-3"
+            >
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+              <Skeleton className="h-4 w-14" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql, sum, count } from "drizzle-orm";
+import { eq, and, or, desc, gte, lte, like, sql, sum, count } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { expenses, categories } from "../db/schema.js";
@@ -101,16 +101,23 @@ export async function listExpenses(
     startDate?: string;
     endDate?: string;
     categoryId?: string;
+    search?: string;
     limit?: number;
     offset?: number;
   } = {},
 ): Promise<Expense[]> {
-  const { startDate, endDate, categoryId, limit = 20, offset = 0 } = opts;
+  const { startDate, endDate, categoryId, search, limit = 20, offset = 0 } = opts;
 
   const conditions: SQL[] = [eq(expenses.user_id, userId)];
   if (startDate) conditions.push(gte(expenses.expense_date, startDate));
   if (endDate) conditions.push(lte(expenses.expense_date, endDate));
   if (categoryId) conditions.push(eq(expenses.category_id, categoryId));
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(like(expenses.merchant, pattern), like(expenses.notes, pattern))!,
+    );
+  }
 
   return db
     .select()

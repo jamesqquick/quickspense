@@ -174,17 +174,18 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
 
   server.tool(
     "list_expenses",
-    "List expenses with optional filters",
+    "List expenses with optional filters. Use search to find expenses by merchant name or notes.",
     {
       startDate: z.string().optional().describe("Start date YYYY-MM-DD"),
       endDate: z.string().optional().describe("End date YYYY-MM-DD"),
       categoryId: z.string().optional().describe("Category ID filter"),
+      search: z.string().max(200).optional().describe("Search merchant name or notes"),
       limit: z.number().int().min(1).max(100).default(20),
       offset: z.number().int().min(0).default(0),
     },
-    async ({ startDate, endDate, categoryId, limit, offset }) =>
+    async ({ startDate, endDate, categoryId, search, limit, offset }) =>
       runTool(() =>
-        expenses.listExpenses(db, userId, { startDate, endDate, categoryId, limit, offset }),
+        expenses.listExpenses(db, userId, { startDate, endDate, categoryId, search, limit, offset }),
       ),
   );
 

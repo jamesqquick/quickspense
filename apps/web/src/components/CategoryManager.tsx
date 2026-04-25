@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Category } from "@quickspense/domain";
+import { Skeleton } from "./Skeleton";
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -8,6 +9,7 @@ export function CategoryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -77,7 +79,48 @@ export function CategoryManager() {
     }
   };
 
-  if (loading) return <p className="text-slate-400">Loading...</p>;
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/categories/seed", { method: "POST" });
+      if (res.ok) {
+        setCategories(await res.json());
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to load default categories");
+      }
+    } catch {
+      setError("Failed to load default categories");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  if (loading)
+    return (
+      <div className="space-y-6">
+        <div className="flex gap-2">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-16" />
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between glass rounded-xl p-3"
+            >
+              <Skeleton className="h-4 w-28" />
+              <div className="flex gap-3">
+                <Skeleton className="h-4 w-10" />
+                <Skeleton className="h-4 w-12" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -97,6 +140,19 @@ export function CategoryManager() {
           Add
         </button>
       </form>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSeedDefaults}
+          disabled={seeding}
+          className="text-sm text-primary-400 hover:text-primary-300 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+        >
+          {seeding ? "Loading..." : "Load default categories"}
+        </button>
+        <span className="text-xs text-slate-500">
+          Adds common categories (skips any that already exist)
+        </span>
+      </div>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 

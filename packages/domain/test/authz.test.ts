@@ -30,6 +30,13 @@ CREATE TABLE IF NOT EXISTS receipts (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, name)
+);
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -47,6 +54,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 
 async function resetDb() {
   await env.DB.prepare("DROP TABLE IF EXISTS expenses").run();
+  await env.DB.prepare("DROP TABLE IF EXISTS categories").run();
   await env.DB.prepare("DROP TABLE IF EXISTS receipts").run();
   await env.DB.prepare("DROP TABLE IF EXISTS users").run();
   for (const stmt of SCHEMA_SQL.split(";").map((s) => s.trim()).filter(Boolean)) {

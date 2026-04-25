@@ -9,7 +9,10 @@ if (!Astro.locals.user) {
 
 <Layout>
   <div class="max-w-lg mx-auto">
-    <h1 class="text-2xl font-bold text-white mb-6">Upload Receipt</h1>
+    <h1 class="text-2xl font-bold text-white mb-2">Upload Receipts</h1>
+    <p class="text-sm text-slate-400 mb-6">
+      Upload up to 10 receipt images at once. Each file becomes its own receipt.
+    </p>
     <UploadForm client:load />
   </div>
 </Layout>

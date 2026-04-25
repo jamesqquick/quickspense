@@ -9,6 +9,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     startDate: url.searchParams.get("startDate") || undefined,
     endDate: url.searchParams.get("endDate") || undefined,
     categoryId: url.searchParams.get("categoryId") || undefined,
+    search: url.searchParams.get("search") || undefined,
     limit: url.searchParams.get("limit") || 20,
     offset: url.searchParams.get("offset") || 0,
   });

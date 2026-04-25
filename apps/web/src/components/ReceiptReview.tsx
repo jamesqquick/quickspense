@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Receipt, ParsedReceipt } from "@quickspense/domain";
+import { Skeleton } from "./Skeleton";
 
 type Props = {
   receiptId: string;
@@ -204,7 +205,48 @@ export function ReceiptReview({ receiptId }: Props) {
   };
 
   if (loading) {
-    return <p className="text-slate-400">Loading...</p>;
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Image placeholder */}
+        <Skeleton className="w-full aspect-[3/4] rounded-2xl" />
+
+        {/* Form fields placeholder */}
+        <div className="space-y-6">
+          <Skeleton className="h-7 w-28 rounded-full" />
+          <div className="space-y-4">
+            <div>
+              <Skeleton className="h-4 w-16 mb-2" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ))}
+            </div>
+            <div>
+              <Skeleton className="h-4 w-32 mb-2" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!receipt) {

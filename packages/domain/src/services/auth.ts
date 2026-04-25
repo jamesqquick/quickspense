@@ -9,6 +9,7 @@ import {
 } from "../db/schema.js";
 import type { User } from "../types.js";
 import { ConflictError, NotFoundError } from "../errors.js";
+import { seedDefaultCategories } from "./category.js";
 
 /** Current iteration count. Cloudflare Workers limits PBKDF2 to 100,000 iterations. */
 const PBKDF2_ITERATIONS = 100_000;
@@ -124,6 +125,9 @@ export async function createUser(
     }
     throw e;
   }
+
+  // Seed default categories for the new user
+  await seedDefaultCategories(db, id);
 
   return {
     id,

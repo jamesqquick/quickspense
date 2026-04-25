@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Expense, Category } from "@quickspense/domain";
 import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
 import { ExpenseEditModal } from "./ExpenseEditModal";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
+import { Skeleton } from "./Skeleton";
 
 function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -16,11 +17,23 @@ export function ExpenseList() {
   const [endDate, setEndDate] = useState("");
   const [categoryId, setCategoryId] = useState("");
 
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
   const labelClasses = "block text-xs text-slate-400 mb-1";
+
+  // Debounce search input
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+  }, []);
 
   const fetchExpenses = async () => {
     setLoading(true);
@@ -28,6 +41,7 @@ export function ExpenseList() {
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (categoryId) params.set("categoryId", categoryId);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     params.set("limit", "50");
 
     try {
@@ -55,7 +69,7 @@ export function ExpenseList() {
 
   useEffect(() => {
     fetchExpenses();
-  }, [startDate, endDate, categoryId]);
+  }, [startDate, endDate, categoryId, debouncedSearch]);
 
   const handleCreate = async (values: ExpenseFormValues) => {
     const amountCents = Math.round(parseFloat(values.amount) * 100);
@@ -103,6 +117,44 @@ export function ExpenseList() {
 
   return (
     <div className="space-y-6">
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search by merchant or notes..."
+          className="w-full px-4 py-2.5 pl-10 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+        />
+        <svg
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+            clipRule="evenodd"
+          />
+        </svg>
+        {search && (
+          <button
+            onClick={() => handleSearchChange("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors duration-200 cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-4 h-4"
+            >
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex gap-4 flex-wrap items-end">
         <div>
@@ -150,6 +202,7 @@ export function ExpenseList() {
             if (startDate) p.set("startDate", startDate);
             if (endDate) p.set("endDate", endDate);
             if (categoryId) p.set("categoryId", categoryId);
+            if (debouncedSearch) p.set("search", debouncedSearch);
             const qs = p.toString();
             return `/api/expenses/export${qs ? `?${qs}` : ""}`;
           })()}
@@ -174,7 +227,23 @@ export function ExpenseList() {
 
       {/* Expense list */}
       {loading ? (
-        <p className="text-slate-400">Loading...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="glass rounded-xl p-4 flex items-center justify-between"
+            >
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <div className="space-y-2 text-right">
+                <Skeleton className="h-4 w-16 ml-auto" />
+                <Skeleton className="h-3 w-10 ml-auto" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : expenses.length === 0 ? (
         <p className="text-slate-400 text-center py-12">No expenses found.</p>
       ) : (

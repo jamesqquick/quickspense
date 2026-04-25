@@ -20,7 +20,7 @@ const EXTRACTION_PROMPT = `You are a receipt parser. Given the OCR text from a r
   "tip": tip amount as a number or null,
   "currency": "USD" or other 3-letter code,
   "date": "YYYY-MM-DD" format or null,
-  "category": best guess category (e.g., "Food & Dining", "Groceries", "Transportation", "Shopping", "Entertainment", "Healthcare", "Utilities", "Other"),
+  "category": best guess from these categories: "Food & Dining", "Groceries", "Transportation", "Shopping", "Entertainment", "Healthcare", "Utilities", "Housing", "Insurance", "Education", "Personal Care", "Travel", "Subscriptions", "Gifts & Donations", "Automotive", "Home & Garden", "Pets", "Office & Business", "Taxes & Fees", "Other",
   "confidence": your confidence in the extraction from 0.0 to 1.0
 }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Expense, ExpenseSummary, Receipt } from "@quickspense/domain";
+import { Skeleton } from "./Skeleton";
 
 function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -36,7 +37,57 @@ export function DashboardSummary() {
     load();
   }, []);
 
-  if (loading) return <p className="text-slate-400">Loading...</p>;
+  if (loading)
+    return (
+      <div className="space-y-8">
+        {/* Summary cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-6 space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ))}
+        </div>
+
+        {/* Category breakdown skeleton */}
+        <div>
+          <Skeleton className="h-5 w-44 mb-3" />
+          <div className="glass rounded-2xl divide-y divide-white/5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent expenses + Needs review skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {Array.from({ length: 2 }).map((_, col) => (
+            <div key={col}>
+              <div className="flex items-center justify-between mb-3">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-14" />
+              </div>
+              <div className="glass rounded-2xl divide-y divide-white/5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
 
   return (
     <div className="space-y-8">

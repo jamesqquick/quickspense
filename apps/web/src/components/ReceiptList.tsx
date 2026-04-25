@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Receipt } from "@quickspense/domain";
+import { Skeleton } from "./Skeleton";
 
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-slate-500/20 text-slate-300",
@@ -63,7 +64,20 @@ export function ReceiptList() {
       </div>
 
       {loading ? (
-        <p className="text-slate-400">Loading...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="glass rounded-xl p-4 flex items-center justify-between"
+            >
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          ))}
+        </div>
       ) : receipts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-slate-400">No receipts found.</p>

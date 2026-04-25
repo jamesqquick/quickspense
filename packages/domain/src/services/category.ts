@@ -4,6 +4,58 @@ import { categories } from "../db/schema.js";
 import type { Category } from "../types.js";
 import { ConflictError, NotFoundError } from "../errors.js";
 
+export const DEFAULT_CATEGORIES = [
+  "Food & Dining",
+  "Groceries",
+  "Transportation",
+  "Shopping",
+  "Entertainment",
+  "Healthcare",
+  "Utilities",
+  "Housing",
+  "Insurance",
+  "Education",
+  "Personal Care",
+  "Travel",
+  "Subscriptions",
+  "Gifts & Donations",
+  "Automotive",
+  "Home & Garden",
+  "Pets",
+  "Office & Business",
+  "Taxes & Fees",
+  "Other",
+] as const;
+
+export async function seedDefaultCategories(
+  db: Database,
+  userId: string,
+): Promise<Category[]> {
+  const now = new Date().toISOString();
+  const seeded: Category[] = [];
+
+  for (const name of DEFAULT_CATEGORIES) {
+    const id = crypto.randomUUID();
+    try {
+      await db.insert(categories).values({
+        id,
+        user_id: userId,
+        name,
+        created_at: now,
+      });
+      seeded.push({ id, user_id: userId, name, created_at: now });
+    } catch (e: unknown) {
+      // Skip duplicates (user already has this category name)
+      if (e instanceof Error && e.message.includes("UNIQUE")) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  return seeded;
+}
+
 export async function createCategory(
   db: Database,
   userId: string,

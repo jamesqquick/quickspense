@@ -87,6 +87,7 @@ export const listExpensesSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   categoryId: z.string().optional(),
+  search: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
