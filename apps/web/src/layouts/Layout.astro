@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 const { user } = Astro.locals;
 const currentPath = Astro.url.pathname;
@@ -33,10 +34,7 @@ const currentPath = Astro.url.pathname;
             <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
             <a href="/categories" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
             <a href="/settings" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
-            <span class="text-sm text-slate-500">{user.email}</span>
-            <form method="POST" action="/api/auth/logout">
-              <button type="submit" class="text-sm text-red-400 hover:text-red-300 transition-colors duration-200 cursor-pointer">Logout</button>
-            </form>
+            <ProfileDropdown email={user.email} client:load />
           </div>
           <!-- Mobile menu button -->
           <button id="app-menu-btn" class="md:hidden text-slate-300 hover:text-white cursor-pointer" aria-label="Toggle menu" aria-expanded="false">
@@ -55,10 +53,20 @@ const currentPath = Astro.url.pathname;
           <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
           <a href="/categories" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
           <a href="/settings" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
-          <div class="pt-2 border-t border-white/10 flex items-center justify-between">
-            <span class="text-sm text-slate-500">{user.email}</span>
+          <div class="pt-2 border-t border-white/10">
+            <div class="flex items-center gap-3 py-2">
+              <span class="flex size-8 items-center justify-center rounded-full border-2 border-accent-500 bg-accent-500/20 text-xs font-semibold text-accent-400">
+                {user.email.split("@")[0]?.split(/[._-]/).filter(Boolean).length >= 2
+                  ? (user.email.split("@")[0]!.split(/[._-]/)[0]![0]! + user.email.split("@")[0]!.split(/[._-]/).filter(Boolean).at(-1)![0]!).toUpperCase()
+                  : user.email.slice(0, 2).toUpperCase()}
+              </span>
+              <span class="text-sm text-slate-400 truncate">{user.email}</span>
+            </div>
             <form method="POST" action="/api/auth/logout">
-              <button type="submit" class="text-sm text-red-400 hover:text-red-300 cursor-pointer">Logout</button>
+              <button type="submit" class="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 cursor-pointer py-2">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                Log out
+              </button>
             </form>
           </div>
         </div>
