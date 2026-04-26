@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { TokenManager } from "../components/TokenManager";
+import { McpConnectionInfo } from "../components/McpConnectionInfo";
 import { DangerZone } from "../components/DangerZone";
 
 if (!Astro.locals.user) {
@@ -12,10 +13,14 @@ const user = Astro.locals.user;
 
 <Layout>
   <h1 class="text-2xl font-bold text-white mb-6">Settings</h1>
-  <div class="max-w-lg space-y-10">
+  <div class="max-w-2xl space-y-10">
     <section>
       <h2 class="text-lg font-semibold text-white mb-4">API Tokens (MCP)</h2>
       <TokenManager client:load />
+    </section>
+    <section>
+      <h2 class="text-lg font-semibold text-white mb-4">MCP Connection</h2>
+      <McpConnectionInfo client:load />
     </section>
     <section>
       <h2 class="text-lg font-semibold text-white mb-4">Danger Zone</h2>
