@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "wrangler": "^4.84.1"
   },
   "dependencies": {
     "tslib": "^2.8.1"
