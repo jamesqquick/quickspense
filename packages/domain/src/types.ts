@@ -80,6 +80,13 @@ export type Expense = {
   updated_at: string;
 };
 
+export type PaginatedResult<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type ExpenseSummary = {
   total: number;
   count: number;

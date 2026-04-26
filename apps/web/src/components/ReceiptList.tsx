@@ -3,6 +3,7 @@ import type { Receipt } from "@quickspense/domain";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
 
 type BadgeVariant = "muted" | "warning" | "info" | "success" | "destructive";
 
@@ -31,23 +32,42 @@ const TABS = [
   { value: "failed", label: "Failed" },
 ];
 
+const PAGE_SIZE = 20;
+
 export function ReceiptList() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
 
-  useEffect(() => {
+  const fetchReceipts = (requestedOffset = offset) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (status) params.set("status", status);
-    params.set("limit", "50");
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(requestedOffset));
 
     fetch(`/api/receipts?${params}`)
       .then((r) => r.json())
-      .then((data) => setReceipts(data))
+      .then((data) => {
+        setReceipts(data.items);
+        setTotal(data.total);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  // Reset to first page when status filter changes
+  useEffect(() => {
+    setOffset(0);
+    fetchReceipts(0);
   }, [status]);
+
+  // Fetch when page changes
+  useEffect(() => {
+    if (offset !== 0) fetchReceipts(offset);
+  }, [offset]);
 
   return (
     <div>
@@ -114,6 +134,13 @@ export function ReceiptList() {
           ))}
         </div>
       )}
+
+      <Pagination
+        total={total}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onPageChange={setOffset}
+      />
     </div>
   );
 }

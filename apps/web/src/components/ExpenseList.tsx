@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination";
 import { Pencil, Trash2, Search, X } from "lucide-react";
+
+const PAGE_SIZE = 20;
 
 function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -17,6 +20,8 @@ function formatCents(cents: number): string {
 
 export function ExpenseList() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
@@ -39,18 +44,23 @@ export function ExpenseList() {
     }, 300);
   }, []);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (requestedOffset = offset) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (categoryId) params.set("categoryId", categoryId);
     if (debouncedSearch) params.set("search", debouncedSearch);
-    params.set("limit", "50");
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(requestedOffset));
 
     try {
       const res = await fetch(`/api/expenses?${params}`);
-      if (res.ok) setExpenses(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses(data.items);
+        setTotal(data.total);
+      }
     } catch {
       // ignore
     } finally {
@@ -71,9 +81,16 @@ export function ExpenseList() {
     fetchCategories();
   }, []);
 
+  // Reset to first page when filters change
   useEffect(() => {
-    fetchExpenses();
+    setOffset(0);
+    fetchExpenses(0);
   }, [startDate, endDate, categoryId, debouncedSearch]);
+
+  // Fetch when page changes (but not on filter change -- handled above)
+  useEffect(() => {
+    if (offset !== 0) fetchExpenses(offset);
+  }, [offset]);
 
   const handleCreate = async (values: ExpenseFormValues) => {
     const amountCents = Math.round(parseFloat(values.amount) * 100);
@@ -97,7 +114,8 @@ export function ExpenseList() {
     }
 
     setShowForm(false);
-    fetchExpenses();
+    setOffset(0);
+    fetchExpenses(0);
   };
 
   const handleEditSave = (updated: Expense) => {
@@ -277,6 +295,13 @@ export function ExpenseList() {
           ))}
         </div>
       )}
+
+      <Pagination
+        total={total}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onPageChange={setOffset}
+      />
 
       {/* Edit modal */}
       {editingExpense && (

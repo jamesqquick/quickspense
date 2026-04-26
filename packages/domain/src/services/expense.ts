@@ -2,7 +2,7 @@ import { eq, and, or, desc, gte, lte, like, sql, sum, count } from "drizzle-orm"
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { expenses, categories } from "../db/schema.js";
-import type { Expense, ExpenseSummary } from "../types.js";
+import type { Expense, ExpenseSummary, PaginatedResult } from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export async function createExpenseFromReceipt(
@@ -105,7 +105,7 @@ export async function listExpenses(
     limit?: number;
     offset?: number;
   } = {},
-): Promise<Expense[]> {
+): Promise<PaginatedResult<Expense>> {
   const { startDate, endDate, categoryId, search, limit = 20, offset = 0 } = opts;
 
   const conditions: SQL[] = [eq(expenses.user_id, userId)];
@@ -119,13 +119,23 @@ export async function listExpenses(
     );
   }
 
-  return db
-    .select()
-    .from(expenses)
-    .where(and(...conditions))
-    .orderBy(desc(expenses.expense_date), desc(expenses.created_at))
-    .limit(limit)
-    .offset(offset) as Promise<Expense[]>;
+  const where = and(...conditions);
+
+  const [items, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(expenses)
+      .where(where)
+      .orderBy(desc(expenses.expense_date), desc(expenses.created_at))
+      .limit(limit)
+      .offset(offset) as Promise<Expense[]>,
+    db
+      .select({ total: count() })
+      .from(expenses)
+      .where(where),
+  ]);
+
+  return { items, total, limit, offset };
 }
 
 export async function getExpense(

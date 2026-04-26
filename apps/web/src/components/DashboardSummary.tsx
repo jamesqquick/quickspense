@@ -24,9 +24,15 @@ export function DashboardSummary() {
           fetch("/api/dashboard/receipt-counts"),
         ]);
 
-        if (expRes.ok) setRecentExpenses(await expRes.json());
+        if (expRes.ok) {
+          const data = await expRes.json();
+          setRecentExpenses(data.items);
+        }
         if (summaryRes.ok) setSummary(await summaryRes.json());
-        if (reviewRes.ok) setNeedsReview(await reviewRes.json());
+        if (reviewRes.ok) {
+          const data = await reviewRes.json();
+          setNeedsReview(data.items);
+        }
         if (allReceiptsRes.ok) setReceiptCounts(await allReceiptsRes.json());
       } catch {
         // ignore

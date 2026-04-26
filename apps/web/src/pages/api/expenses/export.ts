@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   // Fetch all matching expenses by paging. Cap at 10,000 rows for safety.
   const MAX_ROWS = 10_000;
-  const all: Awaited<ReturnType<typeof expenses.listExpenses>> = [];
+  const all: import("@quickspense/domain").Expense[] = [];
   let offset = 0;
   while (all.length < MAX_ROWS) {
     const page = await expenses.listExpenses(db, user.id, {
@@ -43,10 +43,10 @@ export const GET: APIRoute = async ({ locals, url }) => {
       limit: 100,
       offset,
     });
-    if (page.length === 0) break;
-    all.push(...page);
-    offset += page.length;
-    if (page.length < 100) break;
+    if (page.items.length === 0) break;
+    all.push(...page.items);
+    offset += page.items.length;
+    if (page.items.length < 100) break;
   }
 
   // Resolve category names once.

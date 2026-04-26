@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { receipts } from "../db/schema.js";
-import type { Receipt, ReceiptStatus } from "../types.js";
+import type { Receipt, ReceiptStatus, PaginatedResult } from "../types.js";
 import { NotFoundError, InvalidStateTransitionError } from "../errors.js";
 
 const VALID_TRANSITIONS: Record<ReceiptStatus, ReceiptStatus[]> = {
@@ -69,20 +69,28 @@ export async function listReceipts(
   db: Database,
   userId: string,
   opts: { status?: ReceiptStatus; limit?: number; offset?: number } = {},
-): Promise<Receipt[]> {
+): Promise<PaginatedResult<Receipt>> {
   const { status, limit = 20, offset = 0 } = opts;
 
-  const conditions = status
+  const where = status
     ? and(eq(receipts.user_id, userId), eq(receipts.status, status))
     : eq(receipts.user_id, userId);
 
-  return db
-    .select()
-    .from(receipts)
-    .where(conditions)
-    .orderBy(desc(receipts.updated_at))
-    .limit(limit)
-    .offset(offset) as Promise<Receipt[]>;
+  const [items, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(receipts)
+      .where(where)
+      .orderBy(desc(receipts.updated_at))
+      .limit(limit)
+      .offset(offset) as Promise<Receipt[]>,
+    db
+      .select({ total: count() })
+      .from(receipts)
+      .where(where),
+  ]);
+
+  return { items, total, limit, offset };
 }
 
 export async function updateReceiptStatus(
