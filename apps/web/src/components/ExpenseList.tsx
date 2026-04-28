@@ -252,15 +252,15 @@ export function ExpenseList() {
           {expenses.map((exp) => (
             <Card
               key={exp.id}
-              className="rounded-xl p-4 flex items-center justify-between"
+              className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-2"
             >
-              <div>
-                <p className="font-medium text-white">{exp.merchant}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-white truncate">{exp.merchant}</p>
                 <p className="text-sm text-slate-500">
                   {exp.expense_date} &middot; {getCategoryName(exp.category_id)}
                 </p>
                 {exp.notes && (
-                  <p className="text-xs text-slate-500 mt-1">{exp.notes}</p>
+                  <p className="text-xs text-slate-500 mt-1 truncate">{exp.notes}</p>
                 )}
               </div>
               <div className="flex items-center gap-4">
