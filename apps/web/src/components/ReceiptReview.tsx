@@ -180,17 +180,9 @@ export function ReceiptReview({ receiptId }: Props) {
 
     connect();
 
-    // Keep-alive ping every 30s
-    const pingInterval = setInterval(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send("ping");
-      }
-    }, 30_000);
-
     return () => {
       closed = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      clearInterval(pingInterval);
       if (ws && ws.readyState !== WebSocket.CLOSED) {
         ws.close();
       }

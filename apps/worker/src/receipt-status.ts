@@ -34,13 +34,6 @@ export class ReceiptStatusDO extends DurableObject<Env> {
     }
   }
 
-  async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string): Promise<void> {
-    // Clients can send "ping" to keep alive; respond with "pong"
-    if (message === "ping") {
-      ws.send("pong");
-    }
-  }
-
   async webSocketClose(
     ws: WebSocket,
     code: number,
