@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Receipt, ParsedReceipt, Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   receiptId: string;
+};
+
+type StatusUpdate = {
+  status: string;
+  step: string;
+  detail: string;
+  timestamp: number;
 };
 
 function formatCents(cents: number | null): string {
@@ -32,12 +39,26 @@ const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   failed: "destructive",
 };
 
+const STEP_LABELS: Record<string, string> = {
+  "mark-processing": "Starting...",
+  "ocr": "Reading receipt text...",
+  "extract": "Extracting receipt data...",
+  "normalize": "Normalizing data...",
+  "persist-results": "Saving results...",
+  "complete": "Processing complete!",
+  "error": "Processing failed",
+};
+
 export function ReceiptReview({ receiptId }: Props) {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [progressDetail, setProgressDetail] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [usingWebSocket, setUsingWebSocket] = useState(false);
 
   // Editable fields
   const [merchant, setMerchant] = useState("");
@@ -50,7 +71,7 @@ export function ReceiptReview({ receiptId }: Props) {
   const [category, setCategory] = useState("");
   const [categoryList, setCategoryList] = useState<Category[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/receipts/${receiptId}`);
@@ -67,14 +88,13 @@ export function ReceiptReview({ receiptId }: Props) {
         setTip(formatCents(data.parsed.tip_amount));
         setCurrency(data.parsed.currency || "USD");
         setDate(data.parsed.purchase_date || "");
-        // category is resolved to an ID after categories are fetched
       }
     } catch {
       setMessage({ type: "error", text: "Failed to load receipt" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [receiptId]);
 
   useEffect(() => {
     // Fetch categories first so we can resolve suggested_category name -> id
@@ -99,15 +119,90 @@ export function ReceiptReview({ receiptId }: Props) {
       .catch(() => {
         fetchData();
       });
-  }, [receiptId]);
+  }, [receiptId, fetchData]);
 
-  // Poll when processing with exponential backoff.
+  // WebSocket connection for real-time status updates
+  useEffect(() => {
+    if (receipt?.status !== "processing") return;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
+
+    const connect = () => {
+      if (closed) return;
+
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/api/receipts/${receiptId}/ws`;
+
+      try {
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          setUsingWebSocket(true);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const update: StatusUpdate = JSON.parse(event.data);
+            setProgressDetail(update.detail);
+            setCurrentStep(update.step);
+
+            // Terminal states: refetch full data
+            if (update.status === "needs_review" || update.status === "failed") {
+              fetchData();
+            }
+          } catch {
+            // Ignore non-JSON messages (e.g. "pong")
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          setUsingWebSocket(false);
+          // Reconnect after a short delay unless we've been cleaned up
+          if (!closed) {
+            reconnectTimer = setTimeout(connect, 3000);
+          }
+        };
+
+        ws.onerror = () => {
+          // onerror is always followed by onclose, so reconnect happens there
+          wsRef.current = null;
+          setUsingWebSocket(false);
+        };
+      } catch {
+        // WebSocket constructor can throw if URL is invalid
+        setUsingWebSocket(false);
+      }
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
+      wsRef.current = null;
+      setUsingWebSocket(false);
+      setProgressDetail(null);
+      setCurrentStep(null);
+    };
+  }, [receipt?.status, receiptId, fetchData]);
+
+  // Fallback polling when WebSocket is not connected (exponential backoff)
   const [pollGaveUp, setPollGaveUp] = useState(false);
   useEffect(() => {
     if (receipt?.status !== "processing") {
       setPollGaveUp(false);
       return;
     }
+
+    // Don't poll if WebSocket is active
+    if (usingWebSocket) return;
 
     const delays = [3000, 5000, 10000, 30000];
     const MAX_TOTAL_MS = 5 * 60 * 1000;
@@ -136,7 +231,7 @@ export function ReceiptReview({ receiptId }: Props) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [receipt?.status]);
+  }, [receipt?.status, usingWebSocket, fetchData]);
 
   const handleFinalize = async () => {
     if (!merchant || !total || !date) {
@@ -221,6 +316,12 @@ export function ReceiptReview({ receiptId }: Props) {
   const isEditable = receipt.status === "needs_review";
   const canFinalize = receipt.status === "needs_review";
 
+  const completedSteps = ["mark-processing", "ocr", "extract", "normalize", "persist-results", "complete"];
+  const currentStepIndex = currentStep ? completedSteps.indexOf(currentStep) : -1;
+  const progressPercent = currentStep
+    ? Math.min(100, Math.round(((currentStepIndex + 1) / completedSteps.length) * 100))
+    : 0;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left: Receipt image */}
@@ -268,7 +369,7 @@ export function ReceiptReview({ receiptId }: Props) {
         {/* Editable fields */}
         {receipt.status === "processing" ? (
           <div className="text-center py-8">
-            {pollGaveUp ? (
+            {pollGaveUp && !usingWebSocket ? (
               <>
                 <p className="text-slate-300 font-medium mb-2">
                   Still processing...
@@ -283,7 +384,33 @@ export function ReceiptReview({ receiptId }: Props) {
             ) : (
               <>
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-400 mx-auto mb-4" />
-                <p className="text-slate-400">Processing receipt...</p>
+                <p className="text-slate-400 mb-2">
+                  {progressDetail || "Processing receipt..."}
+                </p>
+                {currentStep && (
+                  <div className="w-full max-w-xs mx-auto">
+                    <div className="w-full bg-white/10 rounded-full h-1.5 mb-2">
+                      <div
+                        className="h-1.5 rounded-full bg-primary-400 transition-all duration-700"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {completedSteps.slice(0, -1).map((step, i) => (
+                        <span
+                          key={step}
+                          className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                            i <= currentStepIndex
+                              ? "bg-primary-400/20 text-primary-300"
+                              : "bg-white/5 text-slate-600"
+                          }`}
+                        >
+                          {STEP_LABELS[step] || step}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

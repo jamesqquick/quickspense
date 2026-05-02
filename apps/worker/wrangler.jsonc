@@ -26,5 +26,19 @@
       "binding": "RECEIPT_WORKFLOW",
       "class_name": "ReceiptProcessingWorkflow"
     }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RECEIPT_STATUS_DO",
+        "class_name": "ReceiptStatusDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["ReceiptStatusDO"]
+    }
   ]
 }
