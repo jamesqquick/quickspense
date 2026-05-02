@@ -22,8 +22,8 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
   WorkflowParams
 > {
   private notifyStatus(receiptId: string, update: Omit<StatusUpdate, "timestamp">): void {
-    const stub = this.env.RECEIPT_STATUS.idFromName(receiptId);
-    const obj = this.env.RECEIPT_STATUS.get(stub) as DurableObjectStub<ReceiptStatusDO>;
+    const stub = this.env.RECEIPT_STATUS_DO.idFromName(receiptId);
+    const obj = this.env.RECEIPT_STATUS_DO.get(stub) as DurableObjectStub<ReceiptStatusDO>;
     obj.notify({ ...update, timestamp: Date.now() }).catch(() => {
       // Best-effort: don't fail the workflow if notification fails
     });

@@ -30,7 +30,7 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "RECEIPT_STATUS",
+        "name": "RECEIPT_STATUS_DO",
         "class_name": "ReceiptStatusDO"
       }
     ]

@@ -11,7 +11,7 @@ export interface Env {
   BUCKET: R2Bucket;
   AI: Ai;
   RECEIPT_WORKFLOW: Workflow;
-  RECEIPT_STATUS: DurableObjectNamespace<ReceiptStatusDO>;
+  RECEIPT_STATUS_DO: DurableObjectNamespace<ReceiptStatusDO>;
 }
 
 export default {
@@ -41,8 +41,8 @@ export default {
       }
 
       logger.info("WebSocket upgrade request", { receiptId });
-      const id = env.RECEIPT_STATUS.idFromName(receiptId);
-      const stub = env.RECEIPT_STATUS.get(id);
+      const id = env.RECEIPT_STATUS_DO.idFromName(receiptId);
+      const stub = env.RECEIPT_STATUS_DO.get(id);
       return stub.fetch(request);
     }
 
