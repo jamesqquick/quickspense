@@ -30,8 +30,9 @@ task matches:
   worktree → implement → `pnpm build` → push → PR with `Closes #<n>` →
   tailored manual test plan.
 - **`astro-best-practices`** — Conventions for `apps/web` (Astro pages,
-  API routes, React components), `packages/domain` (Zod schemas, types,
-  Drizzle, services), and `apps/worker` (Workflows + MCP).
+  Astro Actions for mutations, API routes for webhooks/streaming, React
+  components), `packages/domain` (Zod schemas, types, Drizzle, services),
+  and `apps/worker` (Workflows + MCP).
 - **`cleanup-merged-worktree`** — After a PR is merged on GitHub, removes
   the worktree, deletes the local branch, fast-forwards `main`, and prunes
   stale remote refs.
