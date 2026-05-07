@@ -20,12 +20,22 @@ export type InvoiceFormValues = {
   line_items: LineItemDraft[];
 };
 
+/** Returns YYYY-MM-DD for `daysFromNow` days in the future, in local time. */
+function defaultDueDate(daysFromNow = 30): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function emptyInvoiceForm(): InvoiceFormValues {
   return {
     client_name: "",
     client_email: "",
     client_address: "",
-    due_date: "",
+    due_date: defaultDueDate(30),
     notes: "",
     tax_amount: "0.00",
     line_items: [emptyLineItem()],
@@ -43,7 +53,7 @@ export function buildInvoicePayload(values: InvoiceFormValues) {
     client_name: values.client_name.trim(),
     client_email: values.client_email.trim(),
     client_address: values.client_address.trim() || null,
-    due_date: values.due_date || null,
+    due_date: values.due_date,
     notes: values.notes.trim() || null,
     tax_amount: dollarsToCents(values.tax_amount),
     line_items: values.line_items.map((item) => ({
@@ -107,6 +117,8 @@ export function InvoiceForm({
     if (!values.client_email.trim()) return "Client email is required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.client_email))
       return "Client email is invalid";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(values.due_date))
+      return "Due date is required";
     if (values.line_items.length === 0) return "At least one line item is required";
     for (const item of values.line_items) {
       if (!item.description.trim()) return "Each line item needs a description";
@@ -198,11 +210,12 @@ export function InvoiceForm({
             />
           </div>
           <div>
-            <Label>Due date (optional)</Label>
+            <Label>Due date</Label>
             <Input
               type="date"
               value={values.due_date}
               onChange={(e) => update("due_date", e.target.value)}
+              required
             />
           </div>
         </div>

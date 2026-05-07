@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   total INTEGER NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'USD',
   notes TEXT,
-  due_date TEXT,
+  due_date TEXT NOT NULL,
   issued_at TEXT,
   paid_at TEXT,
   stripe_session_id TEXT,
@@ -58,6 +58,7 @@ async function resetDb() {
 const baseInvoice = {
   client_name: "Acme Inc",
   client_email: "billing@acme.test",
+  due_date: "2099-12-31",
   line_items: [
     { description: "Consulting hours", quantity: 10, unit_price: 15000 }, // $150
     { description: "Setup fee", quantity: 1, unit_price: 25000 }, // $250

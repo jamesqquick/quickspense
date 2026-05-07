@@ -27,7 +27,7 @@ export type CreateInvoiceInput = {
   client_email: string;
   client_address?: string | null;
   notes?: string | null;
-  due_date?: string | null;
+  due_date: string;
   tax_amount?: number;
   line_items: InvoiceLineItemInput[];
 };
@@ -37,7 +37,7 @@ export type UpdateInvoiceInput = {
   client_email?: string;
   client_address?: string | null;
   notes?: string | null;
-  due_date?: string | null;
+  due_date?: string;
   tax_amount?: number;
   line_items?: InvoiceLineItemInput[];
 };
@@ -125,7 +125,7 @@ export async function createDraftInvoice(
           total,
           currency: "USD",
           notes: input.notes ?? null,
-          due_date: input.due_date ?? null,
+          due_date: input.due_date,
           created_at: now,
           updated_at: now,
         }),

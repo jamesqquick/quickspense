@@ -224,7 +224,7 @@ export const invoices = sqliteTable(
     total: integer("total").notNull().default(0),
     currency: text("currency").notNull().default("USD"),
     notes: text("notes"),
-    due_date: text("due_date"),
+    due_date: text("due_date").notNull(),
     issued_at: text("issued_at"),
     paid_at: text("paid_at"),
     stripe_session_id: text("stripe_session_id"),

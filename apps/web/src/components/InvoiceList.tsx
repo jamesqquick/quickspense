@@ -121,7 +121,7 @@ export function InvoiceList() {
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Created {invoice.created_at.split("T")[0]}
-                    {invoice.due_date ? ` · Due ${invoice.due_date}` : ""}
+                    {` · Due ${invoice.due_date}`}
                   </p>
                 </div>
                 <div className="text-right">

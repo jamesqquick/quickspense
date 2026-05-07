@@ -19,7 +19,7 @@ function invoiceToFormValues(invoice: InvoiceWithLineItems): InvoiceFormValues {
     client_name: invoice.client_name,
     client_email: invoice.client_email,
     client_address: invoice.client_address ?? "",
-    due_date: invoice.due_date ?? "",
+    due_date: invoice.due_date,
     notes: invoice.notes ?? "",
     tax_amount: (invoice.tax_amount / 100).toFixed(2),
     line_items:
@@ -39,6 +39,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
+  const [devEmailSkipped, setDevEmailSkipped] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -88,8 +89,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       }
       if (path.endsWith("/send") || path.endsWith("/void")) {
         const data = await res.json().catch(() => null);
-        if (data) setInvoice(data);
-        else load();
+        if (data) {
+          if (data.dev_email_skipped && data.dev_pay_url) {
+            setDevEmailSkipped(data.dev_pay_url);
+          } else {
+            setDevEmailSkipped(null);
+          }
+          setInvoice(data);
+        } else load();
       } else if (method === "DELETE") {
         window.location.href = "/invoices";
         return;
@@ -220,6 +227,35 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         </p>
       )}
 
+      {devEmailSkipped && (
+        <Card className="p-4 bg-yellow-500/10 border-yellow-500/30 space-y-2">
+          <p className="text-xs uppercase tracking-wide text-yellow-300">
+            Local dev — email skipped
+          </p>
+          <p className="text-sm text-yellow-200/90">
+            The send_email binding isn't available under <code>astro dev</code>.
+            Open the pay link directly to continue testing:
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="flex-1 min-w-0 text-xs text-slate-300 bg-black/30 px-2 py-1 rounded truncate">
+              {devEmailSkipped}
+            </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard?.writeText(devEmailSkipped)}
+            >
+              Copy
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={devEmailSkipped} target="_blank" rel="noopener noreferrer">
+                Open
+              </a>
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {invoice.status !== "draft" && (
         <Card className="p-4 space-y-2">
           <p className="text-xs uppercase tracking-wide text-slate-400">
@@ -268,14 +304,12 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 {invoice.issued_at.split("T")[0]}
               </p>
             )}
-            {invoice.due_date && (
-              <p className="text-slate-400">
-                <span className="text-xs uppercase tracking-wide mr-2">
-                  Due
-                </span>
-                {invoice.due_date}
-              </p>
-            )}
+            <p className="text-slate-400">
+              <span className="text-xs uppercase tracking-wide mr-2">
+                Due
+              </span>
+              {invoice.due_date}
+            </p>
             {invoice.paid_at && (
               <p className="text-green-300">
                 <span className="text-xs uppercase tracking-wide mr-2">

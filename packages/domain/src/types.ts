@@ -96,7 +96,7 @@ export type Invoice = {
   total: number;
   currency: string;
   notes: string | null;
-  due_date: string | null;
+  due_date: string;
   issued_at: string | null;
   paid_at: string | null;
   stripe_session_id: string | null;

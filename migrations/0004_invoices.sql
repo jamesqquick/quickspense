@@ -15,7 +15,7 @@ CREATE TABLE invoices (
   total INTEGER NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'USD',
   notes TEXT,
-  due_date TEXT,
+  due_date TEXT NOT NULL,
   issued_at TEXT,
   paid_at TEXT,
   stripe_session_id TEXT,

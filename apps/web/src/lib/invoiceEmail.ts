@@ -35,7 +35,7 @@ export async function sendInvoiceEmail(params: {
   const { email, fromAddress, fromName, appUrl, invoice } = params;
   const payUrl = `${appUrl}/pay/${invoice.pay_token}`;
   const totalFormatted = `$${formatCents(invoice.total)}`;
-  const dueLine = invoice.due_date ? `Due by ${invoice.due_date}.` : "";
+  const dueLine = `Due by ${invoice.due_date}.`;
 
   const lineItemsHtml = invoice.line_items
     .map(

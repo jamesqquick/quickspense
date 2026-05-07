@@ -14,7 +14,7 @@ type PublicInvoice = {
   total: number;
   currency: string;
   notes: string | null;
-  due_date: string | null;
+  due_date: string;
   issued_at: string | null;
   paid_at: string | null;
   issuer_name: string;
@@ -150,9 +150,7 @@ export function PublicInvoiceView({
                 Issued {invoice.issued_at.split("T")[0]}
               </p>
             )}
-            {invoice.due_date && (
-              <p className="text-slate-400">Due {invoice.due_date}</p>
-            )}
+            <p className="text-slate-400">Due {invoice.due_date}</p>
             {isPaid && invoice.paid_at && (
               <p className="text-green-300">
                 Paid {invoice.paid_at.split("T")[0]}

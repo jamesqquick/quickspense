@@ -123,9 +123,7 @@ export const createInvoiceSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   due_date: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Due date must be YYYY-MM-DD")
-    .nullable()
-    .optional(),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Due date must be YYYY-MM-DD"),
   tax_amount: z.number().int().nonnegative().default(0),
   line_items: z
     .array(invoiceLineItemInputSchema)
@@ -140,7 +138,6 @@ export const updateInvoiceSchema = z.object({
   due_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable()
     .optional(),
   tax_amount: z.number().int().nonnegative().optional(),
   line_items: z.array(invoiceLineItemInputSchema).min(1).optional(),

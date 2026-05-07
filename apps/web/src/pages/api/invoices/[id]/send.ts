@@ -12,6 +12,35 @@ export const POST: APIRoute = async ({ params, locals }) => {
     // Transition status -> sent (idempotent)
     const invoice = await invoices.markInvoiceSent(db, invoiceId, user.id);
 
+    // env.EMAIL (the send_email binding) is only available on the Cloudflare
+    // runtime. In `astro dev` getPlatformProxy does NOT proxy send_email,
+    // so it remains undefined. We skip the send and surface the pay URL in
+    // the response (and console) so you can finish testing the flow without
+    // a real email round-trip. Status is already 'sent'; the link works.
+    if (!env.EMAIL) {
+      const payUrl = `${env.APP_URL}/pay/${invoice.pay_token}`;
+      locals.logger.warn(
+        "EMAIL binding not available (local dev?); skipping email send",
+        {
+          invoiceId,
+          to: invoice.client_email,
+          payUrl,
+        },
+      );
+      // eslint-disable-next-line no-console
+      console.log(
+        `\n[invoice ${invoice.invoice_number}] would email ${invoice.client_email}\n  pay url: ${payUrl}\n`,
+      );
+      return new Response(
+        JSON.stringify({
+          ...invoice,
+          dev_email_skipped: true,
+          dev_pay_url: payUrl,
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     // Send the email
     try {
       await sendInvoiceEmail({
