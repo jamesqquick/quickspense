@@ -7,8 +7,6 @@ type PublicInvoice = {
   invoice_number: string;
   status: "draft" | "sent" | "paid" | "void";
   client_name: string;
-  client_email: string;
-  client_address: string | null;
   subtotal: number;
   tax_amount: number;
   total: number;
@@ -165,12 +163,6 @@ export function PublicInvoiceView({
             Bill to
           </p>
           <p className="text-white">{invoice.client_name}</p>
-          <p className="text-slate-400 text-sm">{invoice.client_email}</p>
-          {invoice.client_address && (
-            <p className="text-slate-400 text-sm whitespace-pre-line mt-1">
-              {invoice.client_address}
-            </p>
-          )}
         </div>
 
         <div className="border-t border-white/10 pt-4">

@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { invoices, createDb } from "@quickspense/domain";
+import { createStripeClient } from "../../../../../lib/stripe";
 
 /**
  * Public endpoint. Creates a Stripe Checkout Session for the invoice with the
@@ -46,11 +47,18 @@ export const POST: APIRoute = async ({ params, locals }) => {
       );
     }
 
-    const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-      apiVersion: "2026-04-22.dahlia",
-      // Required for Workers fetch-based runtime
-      httpClient: Stripe.createFetchHttpClient(),
-    });
+    let stripe: Stripe;
+    try {
+      stripe = createStripeClient(env);
+    } catch (e) {
+      locals.logger.error("Stripe client refused to initialize", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return new Response(
+        JSON.stringify({ error: "Stripe is not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     const currency = invoice.currency.toLowerCase();
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
@@ -112,10 +120,15 @@ export const POST: APIRoute = async ({ params, locals }) => {
     await invoices.attachStripeSession(db, token, session.id);
 
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Referrer-Policy": "no-referrer",
+      },
     });
   } catch (e: unknown) {
-    locals.logger.error("Stripe checkout creation error", { error: e });
+    locals.logger.error("Stripe checkout creation error", {
+      error: e instanceof Error ? e.message : String(e),
+    });
     return new Response(
       JSON.stringify({ error: "Failed to create checkout session" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

@@ -173,6 +173,8 @@ describe("invoices", () => {
     await invoices.markInvoiceSent(db, invoice.id, user.id);
     await invoices.markInvoicePaidByPayToken(db, invoice.pay_token, {
       stripeSessionId: "cs_test",
+      amountTotal: invoice.total,
+      currency: "usd",
     });
 
     await expect(
@@ -193,27 +195,127 @@ describe("invoices", () => {
     const first = await invoices.markInvoicePaidByPayToken(
       db,
       invoice.pay_token,
-      { stripeSessionId: "cs_1", stripePaymentIntentId: "pi_1" },
+      {
+        stripeSessionId: "cs_1",
+        stripePaymentIntentId: "pi_1",
+        amountTotal: invoice.total,
+        currency: "usd",
+      },
     );
-    expect(first?.status).toBe("paid");
-    const firstPaidAt = first?.paid_at;
+    expect(first.kind).toBe("paid");
+    const firstPaidAt = first.kind === "paid" ? first.invoice.paid_at : null;
+    expect(firstPaidAt).toBeTruthy();
 
     // Second call should not change paid_at
     const second = await invoices.markInvoicePaidByPayToken(
       db,
       invoice.pay_token,
-      { stripeSessionId: "cs_2", stripePaymentIntentId: "pi_2" },
+      {
+        stripeSessionId: "cs_2",
+        stripePaymentIntentId: "pi_2",
+        amountTotal: invoice.total,
+        currency: "usd",
+      },
     );
-    expect(second?.status).toBe("paid");
-    expect(second?.paid_at).toBe(firstPaidAt);
-    // Original session/PI should be preserved (idempotent no-op)
-    expect(second?.stripe_session_id).toBe("cs_1");
+    expect(second.kind).toBe("paid");
+    if (second.kind === "paid") {
+      expect(second.invoice.paid_at).toBe(firstPaidAt);
+      // Original session/PI should be preserved (idempotent no-op)
+      expect(second.invoice.stripe_session_id).toBe("cs_1");
+    }
   });
 
-  it("returns null for unknown pay token", async () => {
+  it("returns unknown_token for unknown pay token", async () => {
     const db = createDb(env.DB);
-    const result = await invoices.markInvoicePaidByPayToken(db, "nope", {});
-    expect(result).toBeNull();
+    const result = await invoices.markInvoicePaidByPayToken(db, "nope", {
+      amountTotal: 100,
+      currency: "usd",
+    });
+    expect(result.kind).toBe("unknown_token");
+  });
+
+  it("refuses to mark paid when amount_total mismatches invoice total", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    await invoices.markInvoiceSent(db, invoice.id, user.id);
+
+    // Attacker pays $0.01 for a $1875 invoice
+    const result = await invoices.markInvoicePaidByPayToken(
+      db,
+      invoice.pay_token,
+      {
+        stripeSessionId: "cs_attacker",
+        amountTotal: 1, // 1 cent
+        currency: "usd",
+      },
+    );
+
+    expect(result.kind).toBe("amount_mismatch");
+    if (result.kind === "amount_mismatch") {
+      expect(result.expectedAmount).toBe(invoice.total);
+      expect(result.gotAmount).toBe(1);
+    }
+
+    // Invoice must still be in 'sent' state
+    const reread = await invoices.getInvoice(db, invoice.id, user.id);
+    expect(reread?.status).toBe("sent");
+  });
+
+  it("refuses to mark paid when currency mismatches", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    await invoices.markInvoiceSent(db, invoice.id, user.id);
+
+    const result = await invoices.markInvoicePaidByPayToken(
+      db,
+      invoice.pay_token,
+      {
+        stripeSessionId: "cs_wrong_currency",
+        amountTotal: invoice.total,
+        currency: "eur",
+      },
+    );
+
+    expect(result.kind).toBe("amount_mismatch");
+    const reread = await invoices.getInvoice(db, invoice.id, user.id);
+    expect(reread?.status).toBe("sent");
+  });
+
+  it("refuses void -> paid transition", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    await invoices.markInvoiceSent(db, invoice.id, user.id);
+    await invoices.voidInvoice(db, invoice.id, user.id);
+
+    // Late async payment after void must NOT flip status back
+    const result = await invoices.markInvoicePaidByPayToken(
+      db,
+      invoice.pay_token,
+      {
+        stripeSessionId: "cs_late",
+        amountTotal: invoice.total,
+        currency: "usd",
+      },
+    );
+
+    expect(result.kind).toBe("void");
+    const reread = await invoices.getInvoice(db, invoice.id, user.id);
+    expect(reread?.status).toBe("void");
   });
 
   it("updateDraftInvoice replaces line items and recomputes totals", async () => {

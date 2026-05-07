@@ -2,9 +2,20 @@ import type { APIRoute } from "astro";
 import { invoices, createDb } from "@quickspense/domain";
 
 /**
- * Public read of an invoice by its pay_token. Returns minimal data needed
- * to render the public pay page: amounts, line items, client name, status.
- * Owner identity is NOT exposed here (only EMAIL_FROM_NAME is shown to clients).
+ * Public read of an invoice by its pay_token. Returns the minimum data
+ * needed to render the public pay page: amounts, line items, status, and
+ * the issuer-side display name.
+ *
+ * SECURITY: This endpoint is unauthenticated. Anyone with the pay_token can
+ * call it. We deliberately do NOT expose:
+ * - `client_email` / `client_address`: PII that the recipient already knows;
+ *   if the token URL leaks (forwarded email, browser history, server logs)
+ *   we don't want to leak the recipient's contact info to whoever finds it.
+ * - `user_id`, `stripe_session_id`, `stripe_payment_intent_id`: internal IDs.
+ *
+ * Responses also set `Referrer-Policy: no-referrer` so the pay_token isn't
+ * leaked in the Referer header when the user navigates to Stripe Checkout
+ * or any external link from the pay page.
  */
 export const GET: APIRoute = async ({ params, locals }) => {
   const db = createDb(locals.runtime.env.DB);
@@ -14,17 +25,17 @@ export const GET: APIRoute = async ({ params, locals }) => {
   if (!invoice) {
     return new Response(JSON.stringify({ error: "Invoice not found" }), {
       status: 404,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Referrer-Policy": "no-referrer",
+      },
     });
   }
 
-  // Don't surface internal owner ids, stripe details
   const publicView = {
     invoice_number: invoice.invoice_number,
     status: invoice.status,
     client_name: invoice.client_name,
-    client_email: invoice.client_email,
-    client_address: invoice.client_address,
     subtotal: invoice.subtotal,
     tax_amount: invoice.tax_amount,
     total: invoice.total,
@@ -45,6 +56,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
   };
 
   return new Response(JSON.stringify(publicView), {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Referrer-Policy": "no-referrer",
+    },
   });
 };
