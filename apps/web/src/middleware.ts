@@ -7,10 +7,13 @@ const PUBLIC_PATHS = [
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/pay",
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/invoices/public",
+  "/api/webhooks/stripe",
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {

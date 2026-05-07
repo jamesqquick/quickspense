@@ -80,6 +80,46 @@ export type Expense = {
   updated_at: string;
 };
 
+export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
+
+export type Invoice = {
+  id: string;
+  user_id: string;
+  invoice_number: string;
+  pay_token: string;
+  status: InvoiceStatus;
+  client_name: string;
+  client_email: string;
+  client_address: string | null;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  currency: string;
+  notes: string | null;
+  due_date: string | null;
+  issued_at: string | null;
+  paid_at: string | null;
+  stripe_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InvoiceLineItem = {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  position: number;
+  created_at: string;
+};
+
+export type InvoiceWithLineItems = Invoice & {
+  line_items: InvoiceLineItem[];
+};
+
 export type PaginatedResult<T> = {
   items: T[];
   total: number;

@@ -1,0 +1,13 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { PublicInvoiceView } from "../../components/PublicInvoiceView";
+
+const { token } = Astro.params;
+const success = Astro.url.searchParams.get("status") === "success";
+---
+
+<Layout>
+  <div class="max-w-2xl mx-auto">
+    <PublicInvoiceView token={token!} initialSuccess={success} client:load />
+  </div>
+</Layout>

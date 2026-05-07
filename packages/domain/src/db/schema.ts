@@ -25,6 +25,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   categories: many(categories),
   receipts: many(receipts),
   expenses: many(expenses),
+  invoices: many(invoices),
   passwordResetTokens: many(passwordResetTokens),
 }));
 
@@ -199,6 +200,77 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   category: one(categories, {
     fields: [expenses.category_id],
     references: [categories.id],
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Invoices
+// ---------------------------------------------------------------------------
+export const invoices = sqliteTable(
+  "invoices",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    invoice_number: text("invoice_number").notNull(),
+    pay_token: text("pay_token").notNull().unique(),
+    status: text("status").notNull().default("draft"),
+    client_name: text("client_name").notNull(),
+    client_email: text("client_email").notNull(),
+    client_address: text("client_address"),
+    subtotal: integer("subtotal").notNull().default(0),
+    tax_amount: integer("tax_amount").notNull().default(0),
+    total: integer("total").notNull().default(0),
+    currency: text("currency").notNull().default("USD"),
+    notes: text("notes"),
+    due_date: text("due_date"),
+    issued_at: text("issued_at"),
+    paid_at: text("paid_at"),
+    stripe_session_id: text("stripe_session_id"),
+    stripe_payment_intent_id: text("stripe_payment_intent_id"),
+    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+    updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_invoices_user_status").on(table.user_id, table.status),
+    index("idx_invoices_user_created").on(table.user_id, table.created_at),
+    uniqueIndex("idx_invoices_user_number").on(table.user_id, table.invoice_number),
+    index("idx_invoices_pay_token").on(table.pay_token),
+  ],
+);
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  user: one(users, { fields: [invoices.user_id], references: [users.id] }),
+  lineItems: many(invoiceLineItems),
+}));
+
+// ---------------------------------------------------------------------------
+// Invoice Line Items
+// ---------------------------------------------------------------------------
+export const invoiceLineItems = sqliteTable(
+  "invoice_line_items",
+  {
+    id: text("id").primaryKey(),
+    invoice_id: text("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: real("quantity").notNull().default(1),
+    unit_price: integer("unit_price").notNull().default(0),
+    line_total: integer("line_total").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_invoice_line_items_invoice").on(table.invoice_id, table.position),
+  ],
+);
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceLineItems.invoice_id],
+    references: [invoices.id],
   }),
 }));
 

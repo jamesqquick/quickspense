@@ -1,0 +1,17 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { InvoiceDetail } from "../../components/InvoiceDetail";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+---
+
+<Layout>
+  <div class="mb-4">
+    <a href="/invoices" class="text-sm text-slate-400 hover:text-white">&larr; Back to invoices</a>
+  </div>
+  <InvoiceDetail invoiceId={id!} client:load />
+</Layout>

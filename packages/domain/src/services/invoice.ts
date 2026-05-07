@@ -1,0 +1,413 @@
+import { eq, and, desc, sql, count } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import type { Database } from "../db/index.js";
+import { invoices, invoiceLineItems } from "../db/schema.js";
+import type {
+  Invoice,
+  InvoiceLineItem,
+  InvoiceStatus,
+  InvoiceWithLineItems,
+  PaginatedResult,
+} from "../types.js";
+import {
+  ConflictError,
+  InvalidStateTransitionError,
+  NotFoundError,
+} from "../errors.js";
+
+export type InvoiceLineItemInput = {
+  description: string;
+  quantity: number;
+  unit_price: number;
+};
+
+export type CreateInvoiceInput = {
+  userId: string;
+  client_name: string;
+  client_email: string;
+  client_address?: string | null;
+  notes?: string | null;
+  due_date?: string | null;
+  tax_amount?: number;
+  line_items: InvoiceLineItemInput[];
+};
+
+export type UpdateInvoiceInput = {
+  client_name?: string;
+  client_email?: string;
+  client_address?: string | null;
+  notes?: string | null;
+  due_date?: string | null;
+  tax_amount?: number;
+  line_items?: InvoiceLineItemInput[];
+};
+
+const NUMBER_PREFIX = "INV-";
+const NUMBER_PAD = 4;
+
+function formatInvoiceNumber(seq: number): string {
+  return `${NUMBER_PREFIX}${String(seq).padStart(NUMBER_PAD, "0")}`;
+}
+
+function parseInvoiceNumber(num: string): number {
+  if (!num.startsWith(NUMBER_PREFIX)) return 0;
+  const n = parseInt(num.slice(NUMBER_PREFIX.length), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Returns the next invoice number for a user. Per-user sequential.
+ * Uses MAX(invoice_number)+1. The unique index on (user_id, invoice_number)
+ * protects against accidental duplicates; callers retry on conflict.
+ */
+export async function getNextInvoiceNumber(
+  db: Database,
+  userId: string,
+): Promise<string> {
+  const rows = await db
+    .select({ invoice_number: invoices.invoice_number })
+    .from(invoices)
+    .where(eq(invoices.user_id, userId));
+
+  let max = 0;
+  for (const row of rows) {
+    const n = parseInvoiceNumber(row.invoice_number);
+    if (n > max) max = n;
+  }
+  return formatInvoiceNumber(max + 1);
+}
+
+function generatePayToken(): string {
+  return `qsi_${crypto.randomUUID().replace(/-/g, "")}${crypto
+    .randomUUID()
+    .replace(/-/g, "")}`;
+}
+
+function computeLineTotal(item: InvoiceLineItemInput): number {
+  // Round to nearest cent. quantity may be fractional.
+  return Math.round(item.quantity * item.unit_price);
+}
+
+function computeSubtotal(items: InvoiceLineItemInput[]): number {
+  return items.reduce((acc, item) => acc + computeLineTotal(item), 0);
+}
+
+export async function createDraftInvoice(
+  db: Database,
+  input: CreateInvoiceInput,
+): Promise<InvoiceWithLineItems> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const taxAmount = input.tax_amount ?? 0;
+  const subtotal = computeSubtotal(input.line_items);
+  const total = subtotal + taxAmount;
+  const payToken = generatePayToken();
+
+  // Retry on rare invoice_number conflict
+  let attempts = 0;
+  while (true) {
+    attempts++;
+    const invoiceNumber = await getNextInvoiceNumber(db, input.userId);
+
+    try {
+      await db.batch([
+        db.insert(invoices).values({
+          id,
+          user_id: input.userId,
+          invoice_number: invoiceNumber,
+          pay_token: payToken,
+          status: "draft",
+          client_name: input.client_name,
+          client_email: input.client_email,
+          client_address: input.client_address ?? null,
+          subtotal,
+          tax_amount: taxAmount,
+          total,
+          currency: "USD",
+          notes: input.notes ?? null,
+          due_date: input.due_date ?? null,
+          created_at: now,
+          updated_at: now,
+        }),
+        ...input.line_items.map((item, idx) =>
+          db.insert(invoiceLineItems).values({
+            id: crypto.randomUUID(),
+            invoice_id: id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: computeLineTotal(item),
+            position: idx,
+            created_at: now,
+          }),
+        ),
+      ]);
+      break;
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        e.message.includes("UNIQUE") &&
+        e.message.includes("invoice_number") &&
+        attempts < 3
+      ) {
+        // Race with another insert; pick a new number and retry
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  const created = await getInvoice(db, id, input.userId);
+  if (!created) throw new NotFoundError("Invoice", id);
+  return created;
+}
+
+export async function getInvoice(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+): Promise<InvoiceWithLineItems | null> {
+  const [row] = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+  if (!row) return null;
+
+  const items = await db
+    .select()
+    .from(invoiceLineItems)
+    .where(eq(invoiceLineItems.invoice_id, invoiceId))
+    .orderBy(invoiceLineItems.position);
+
+  return {
+    ...(row as Invoice),
+    line_items: items as InvoiceLineItem[],
+  };
+}
+
+export async function getInvoiceByPayToken(
+  db: Database,
+  token: string,
+): Promise<InvoiceWithLineItems | null> {
+  const [row] = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.pay_token, token));
+  if (!row) return null;
+
+  const items = await db
+    .select()
+    .from(invoiceLineItems)
+    .where(eq(invoiceLineItems.invoice_id, row.id))
+    .orderBy(invoiceLineItems.position);
+
+  return {
+    ...(row as Invoice),
+    line_items: items as InvoiceLineItem[],
+  };
+}
+
+export async function listInvoices(
+  db: Database,
+  userId: string,
+  opts: { status?: InvoiceStatus; limit?: number; offset?: number } = {},
+): Promise<PaginatedResult<Invoice>> {
+  const { status, limit = 20, offset = 0 } = opts;
+
+  const conditions: SQL[] = [eq(invoices.user_id, userId)];
+  if (status) conditions.push(eq(invoices.status, status));
+  const where = and(...conditions);
+
+  const [items, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(invoices)
+      .where(where)
+      .orderBy(desc(invoices.created_at))
+      .limit(limit)
+      .offset(offset) as Promise<Invoice[]>,
+    db.select({ total: count() }).from(invoices).where(where),
+  ]);
+
+  return { items, total, limit, offset };
+}
+
+export async function updateDraftInvoice(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+  fields: UpdateInvoiceInput,
+): Promise<InvoiceWithLineItems> {
+  const existing = await getInvoice(db, invoiceId, userId);
+  if (!existing) throw new NotFoundError("Invoice", invoiceId);
+  if (existing.status !== "draft") {
+    throw new ConflictError("Only draft invoices can be edited");
+  }
+
+  const now = new Date().toISOString();
+  const newLineItems = fields.line_items;
+  const taxAmount = fields.tax_amount ?? existing.tax_amount;
+
+  const updates: Record<string, unknown> = { updated_at: now };
+  if (fields.client_name !== undefined) updates.client_name = fields.client_name;
+  if (fields.client_email !== undefined) updates.client_email = fields.client_email;
+  if (fields.client_address !== undefined)
+    updates.client_address = fields.client_address;
+  if (fields.notes !== undefined) updates.notes = fields.notes;
+  if (fields.due_date !== undefined) updates.due_date = fields.due_date;
+  if (fields.tax_amount !== undefined) updates.tax_amount = fields.tax_amount;
+
+  if (newLineItems) {
+    const subtotal = computeSubtotal(newLineItems);
+    const total = subtotal + taxAmount;
+    updates.subtotal = subtotal;
+    updates.total = total;
+
+    const ops = [
+      db
+        .update(invoices)
+        .set(updates)
+        .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId))),
+      db.delete(invoiceLineItems).where(eq(invoiceLineItems.invoice_id, invoiceId)),
+      ...newLineItems.map((item, idx) =>
+        db.insert(invoiceLineItems).values({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          line_total: computeLineTotal(item),
+          position: idx,
+          created_at: now,
+        }),
+      ),
+    ];
+    await db.batch(ops as [typeof ops[number], ...typeof ops]);
+  } else {
+    // No line item changes; if tax changed we still need to recompute total
+    if (fields.tax_amount !== undefined) {
+      updates.total = existing.subtotal + taxAmount;
+    }
+    await db
+      .update(invoices)
+      .set(updates)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+  }
+
+  const updated = await getInvoice(db, invoiceId, userId);
+  if (!updated) throw new NotFoundError("Invoice", invoiceId);
+  return updated;
+}
+
+export async function deleteDraftInvoice(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+): Promise<void> {
+  const existing = await getInvoice(db, invoiceId, userId);
+  if (!existing) throw new NotFoundError("Invoice", invoiceId);
+  if (existing.status !== "draft") {
+    throw new ConflictError(
+      "Only draft invoices can be deleted. Void the invoice instead.",
+    );
+  }
+  await db
+    .delete(invoices)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+}
+
+/** Transition draft -> sent. Returns the updated invoice for email caller. */
+export async function markInvoiceSent(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+): Promise<InvoiceWithLineItems> {
+  const existing = await getInvoice(db, invoiceId, userId);
+  if (!existing) throw new NotFoundError("Invoice", invoiceId);
+  if (existing.status === "sent") return existing; // idempotent
+  if (existing.status !== "draft") {
+    throw new InvalidStateTransitionError(existing.status, "sent");
+  }
+  const now = new Date().toISOString();
+  await db
+    .update(invoices)
+    .set({ status: "sent", issued_at: now, updated_at: now })
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+
+  const updated = await getInvoice(db, invoiceId, userId);
+  if (!updated) throw new NotFoundError("Invoice", invoiceId);
+  return updated;
+}
+
+export async function voidInvoice(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+): Promise<InvoiceWithLineItems> {
+  const existing = await getInvoice(db, invoiceId, userId);
+  if (!existing) throw new NotFoundError("Invoice", invoiceId);
+  if (existing.status === "void") return existing;
+  if (existing.status === "paid") {
+    throw new InvalidStateTransitionError("paid", "void");
+  }
+  const now = new Date().toISOString();
+  await db
+    .update(invoices)
+    .set({ status: "void", updated_at: now })
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+
+  const updated = await getInvoice(db, invoiceId, userId);
+  if (!updated) throw new NotFoundError("Invoice", invoiceId);
+  return updated;
+}
+
+/**
+ * Idempotent. Called by the Stripe webhook on successful checkout.
+ * Looks up by pay_token (preferred) or invoice id. Returns the invoice or null.
+ */
+export async function markInvoicePaidByPayToken(
+  db: Database,
+  payToken: string,
+  payment: { stripeSessionId?: string; stripePaymentIntentId?: string },
+): Promise<Invoice | null> {
+  const [row] = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.pay_token, payToken));
+  if (!row) return null;
+  if (row.status === "paid") return row as Invoice; // idempotent
+
+  const now = new Date().toISOString();
+  await db
+    .update(invoices)
+    .set({
+      status: "paid",
+      paid_at: now,
+      updated_at: now,
+      stripe_session_id: payment.stripeSessionId ?? row.stripe_session_id,
+      stripe_payment_intent_id:
+        payment.stripePaymentIntentId ?? row.stripe_payment_intent_id,
+    })
+    .where(eq(invoices.id, row.id));
+
+  const [updated] = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.id, row.id));
+  return (updated as Invoice) ?? null;
+}
+
+/** Stash a Stripe Checkout session id on the invoice. Public path. */
+export async function attachStripeSession(
+  db: Database,
+  payToken: string,
+  sessionId: string,
+): Promise<void> {
+  await db
+    .update(invoices)
+    .set({
+      stripe_session_id: sessionId,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(invoices.pay_token, payToken));
+}

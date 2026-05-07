@@ -9,3 +9,4 @@ export * as receipts from "./services/receipt.js";
 export * as parse from "./services/parse.js";
 export * as expenses from "./services/expense.js";
 export * as categories from "./services/category.js";
+export * as invoices from "./services/invoice.js";

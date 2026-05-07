@@ -26,6 +26,9 @@ type Runtime = import("@astrojs/cloudflare").Runtime<{
   EMAIL_FROM_ADDRESS: string;
   EMAIL_FROM_NAME: string;
   WORKER_DEV_URL?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
 }>;
 
 declare namespace App {
