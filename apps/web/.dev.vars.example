@@ -1,0 +1,17 @@
+# Local development secrets. Copy to .dev.vars and fill in.
+# .dev.vars is gitignored. Never commit real secrets.
+
+# Stripe — required for invoicing.
+# Use a TEST-MODE key only. The app refuses to start with `sk_live_...`
+# outside production (see lib/stripe.ts). Get from:
+#   https://dashboard.stripe.com/test/apikeys
+STRIPE_SECRET_KEY=sk_test_...
+
+# Get from `stripe listen --forward-to localhost:4321/api/webhooks/stripe`
+# (NOT the same as the production webhook secret)
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Optional escape hatch: set to "1" to allow `sk_live_...` keys outside
+# production. Only use this if you're knowingly reproducing a live-mode
+# bug locally. DO NOT leave this set.
+# STRIPE_ALLOW_LIVE_KEY=1

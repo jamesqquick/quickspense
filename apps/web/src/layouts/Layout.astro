@@ -32,6 +32,7 @@ const currentPath = Astro.url.pathname;
             <a href="/dashboard" class:list={["text-sm transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
             <a href="/receipts" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
             <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+            <a href="/invoices" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/invoices") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Invoices</a>
             <a href="/categories" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
             <a href="/settings" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
             <ProfileDropdown email={user.email} client:load />
@@ -51,6 +52,7 @@ const currentPath = Astro.url.pathname;
           <a href="/dashboard" class:list={["block text-sm py-2 transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
           <a href="/receipts" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
           <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+          <a href="/invoices" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/invoices") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Invoices</a>
           <a href="/categories" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
           <a href="/settings" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
           <div class="pt-2 border-t border-white/10">

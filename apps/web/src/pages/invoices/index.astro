@@ -1,0 +1,13 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { InvoiceList } from "../../components/InvoiceList";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <h1 class="text-2xl font-bold text-white mb-6">Invoices</h1>
+  <InvoiceList client:load />
+</Layout>

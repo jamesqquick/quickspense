@@ -1,0 +1,17 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { PublicInvoiceView } from "../../components/PublicInvoiceView";
+
+const { token } = Astro.params;
+const success = Astro.url.searchParams.get("status") === "success";
+
+// Don't leak the pay_token in the Referer header when the user navigates
+// to Stripe Checkout or any external link.
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+---
+
+<Layout>
+  <div class="max-w-2xl mx-auto">
+    <PublicInvoiceView token={token!} initialSuccess={success} client:load />
+  </div>
+</Layout>

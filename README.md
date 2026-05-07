@@ -110,6 +110,58 @@ pnpm deploy:worker
 pnpm db:migrate:remote
 ```
 
+## Testing Invoicing Locally
+
+The invoicing feature uses Stripe Checkout. To test it on `localhost:4321`:
+
+1. **Get a Stripe Sandbox restricted key** with `Checkout Sessions: Write`
+   permission. Copy it (`rk_test_...`).
+2. **Set local secrets** in `apps/web/.dev.vars` (gitignored):
+   ```
+   STRIPE_SECRET_KEY=rk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...    # filled in step 4
+   ```
+3. **Authenticate the Stripe CLI** (one time):
+   ```bash
+   stripe login
+   ```
+4. **Forward webhooks** in a dedicated terminal:
+   ```bash
+   stripe listen --forward-to localhost:4321/api/webhooks/stripe
+   ```
+   Copy the printed `whsec_...` into `STRIPE_WEBHOOK_SECRET` in `.dev.vars`.
+   Keep this terminal running.
+5. **Verify local D1 has invoice tables**:
+   ```bash
+   pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db \
+     --local --persist-to=../../.wrangler-shared \
+     --command "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%invoice%'"
+   ```
+6. **Start dev** (another terminal): `pnpm dev:web`
+7. **End-to-end test**:
+   - Log in → **Invoices → New Invoice**
+   - Use your real email as the client email (`remote: true` binding sends real mail)
+   - Add a line item, click **Save & send**
+   - Click the pay link in the email → click Pay → use card `4242 4242 4242 4242`,
+     any future expiry (`12/34`), any CVC (`123`), any ZIP
+   - Watch the `stripe listen` terminal for `checkout.session.completed` → `200`
+   - Refresh `/invoices/{id}` — status flips to **Paid**
+
+**Email under `astro dev`:** the Cloudflare `send_email` binding is NOT
+proxied by `getPlatformProxy`, so `env.EMAIL` is `undefined` in local dev.
+The send endpoint detects this and returns the pay URL inline instead of
+emailing — the invoice detail page surfaces the URL with a copy button.
+Click it, paste in a new tab, and continue with Stripe Checkout. To
+exercise the real email path locally, build and run via `wrangler dev`
+against the built worker output instead of `astro dev`.
+
+**Troubleshooting:**
+
+- `Stripe is not configured` — restart `pnpm dev:web` after editing `.dev.vars`
+- Signature verification failure — re-copy the `whsec_...` from `stripe listen`
+- `permission_error` from Stripe — restricted key missing `Checkout Sessions: Write`
+- Pay button rejects with "not been sent yet" — click **Send** on the draft first
+
 ## MCP Integration
 
 Quickspense includes a full MCP server that exposes tools and resources for AI assistants. To connect Claude Desktop or any MCP client:
