@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { InvoiceWithLineItems } from "@quickspense/domain";
+import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,7 @@ function invoiceToFormValues(invoice: InvoiceWithLineItems): InvoiceFormValues {
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [invoice, setInvoice] = useState<InvoiceWithLineItems | null>(null);
+  const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -44,9 +45,19 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}`);
-      if (res.ok) {
-        setInvoice(await res.json());
+      // Fetch invoice and business profile in parallel. Profile is best-effort
+      // (404 = user hasn't set one up yet); we still render the invoice.
+      const [invoiceRes, profileRes] = await Promise.all([
+        fetch(`/api/invoices/${invoiceId}`),
+        fetch("/api/me/business-profile"),
+      ]);
+      if (invoiceRes.ok) {
+        setInvoice(await invoiceRes.json());
+      }
+      if (profileRes.ok) {
+        setProfile(await profileRes.json());
+      } else {
+        setProfile(null);
       }
     } finally {
       setLoading(false);
@@ -282,16 +293,33 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       )}
 
       <Card className="p-6 space-y-4">
+        {!profile && (
+          <div className="rounded border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+            You haven't set up your business profile yet. Clients will see a
+            generic issuer name on this invoice.{" "}
+            <a href="/settings" className="underline hover:text-yellow-100">
+              Set it up in settings
+            </a>
+            .
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">
-              Bill to
+              From
             </p>
-            <p className="text-white font-medium">{invoice.client_name}</p>
-            <p className="text-slate-400">{invoice.client_email}</p>
-            {invoice.client_address && (
+            <p className="text-white font-medium">
+              {profile?.business_name ?? "—"}
+            </p>
+            {profile?.business_email && (
+              <p className="text-slate-400">{profile.business_email}</p>
+            )}
+            {profile?.business_phone && (
+              <p className="text-slate-400">{profile.business_phone}</p>
+            )}
+            {profile?.business_address && (
               <p className="text-slate-400 whitespace-pre-line mt-1">
-                {invoice.client_address}
+                {profile.business_address}
               </p>
             )}
           </div>
@@ -319,6 +347,19 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
               </p>
             )}
           </div>
+        </div>
+
+        <div className="border-t border-white/10 pt-4">
+          <p className="text-xs uppercase tracking-wide text-slate-400">
+            Bill to
+          </p>
+          <p className="text-white font-medium">{invoice.client_name}</p>
+          <p className="text-slate-400">{invoice.client_email}</p>
+          {invoice.client_address && (
+            <p className="text-slate-400 whitespace-pre-line mt-1">
+              {invoice.client_address}
+            </p>
+          )}
         </div>
 
         <div className="border-t border-white/10 pt-4">

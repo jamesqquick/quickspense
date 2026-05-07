@@ -148,3 +148,24 @@ export const listInvoicesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+// ---------------------------------------------------------------------------
+// Business Profile
+// ---------------------------------------------------------------------------
+// `business_name` is the only required field. Other fields are optional and
+// nullable; clients send `null` to clear an existing value or omit a field
+// to leave it unchanged on update.
+export const upsertBusinessProfileSchema = z.object({
+  business_name: z
+    .string()
+    .min(1, "Business name is required")
+    .max(200, "Business name is too long"),
+  business_email: z
+    .string()
+    .email("Invalid business email")
+    .max(320)
+    .nullable()
+    .optional(),
+  business_phone: z.string().max(50).nullable().optional(),
+  business_address: z.string().max(1000).nullable().optional(),
+});

@@ -16,6 +16,9 @@ type PublicInvoice = {
   issued_at: string | null;
   paid_at: string | null;
   issuer_name: string;
+  issuer_email: string | null;
+  issuer_phone: string | null;
+  issuer_address: string | null;
   line_items: Array<{
     id: string;
     description: string;
@@ -112,6 +115,18 @@ export function PublicInvoiceView({
       <div className="text-center space-y-1">
         <p className="text-sm text-slate-400">Invoice from</p>
         <p className="text-xl font-semibold text-white">{invoice.issuer_name}</p>
+        {invoice.issuer_address && (
+          <p className="text-sm text-slate-400 whitespace-pre-line">
+            {invoice.issuer_address}
+          </p>
+        )}
+        {(invoice.issuer_email || invoice.issuer_phone) && (
+          <p className="text-sm text-slate-400">
+            {[invoice.issuer_email, invoice.issuer_phone]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
       </div>
 
       {initialSuccess && isPaid && (
