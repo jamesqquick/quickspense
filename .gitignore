@@ -1,7 +1,6 @@
 node_modules/
 dist/
 .wrangler/
-.wrangler-shared/
 .astro/
 .dev.vars
 *.local

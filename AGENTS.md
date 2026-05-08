@@ -14,9 +14,12 @@ packages/
 migrations/       D1 SQL migrations (shared by both Workers)
 ```
 
-Local Cloudflare state for both Workers lives in a single shared directory
-at the repo root: `.wrangler-shared/`. It is gitignored and must be copied
-between worktrees on the same machine when starting fresh work.
+Local Cloudflare state for both Workers lives in a single root-level
+directory at the repo root: `.wrangler/`. It is gitignored, and each git
+worktree gets its own self-contained copy — there is no cross-worktree
+sharing at runtime. The `worktree-setup` skill copies `.wrangler/` from the
+main checkout into a new worktree on the same machine when starting fresh
+work (full `cp -R` copy, never a symlink).
 
 ## Skills
 
@@ -24,8 +27,8 @@ Repo-specific skills live under `.opencode/skills/`. Use them when the
 task matches:
 
 - **`worktree-setup`** — Run immediately after creating a new git
-  worktree. Copies `.wrangler-shared/` and `apps/web/.dev.vars` from the
-  main checkout, then runs migrations.
+  worktree. Copies `.wrangler/` and `apps/web/.dev.vars` from the main
+  checkout (full `cp -R`, no symlinks), then runs migrations.
 - **`implement-gh-issue`** — End-to-end workflow: GitHub issue → fresh
   worktree → implement → `pnpm build` → push → PR with `Closes #<n>` →
   tailored manual test plan.

@@ -12,7 +12,7 @@
     "deploy:web": "pnpm --filter @quickspense/web run deploy",
     "deploy:worker": "pnpm --filter @quickspense/worker run deploy",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "pnpm --filter @quickspense/web exec wrangler d1 migrations apply quickspense-db --local --persist-to=../../.wrangler-shared",
+    "db:migrate:local": "pnpm --filter @quickspense/web exec wrangler d1 migrations apply quickspense-db --local --persist-to=../../.wrangler",
     "db:migrate:remote": "pnpm --filter @quickspense/web exec wrangler d1 migrations apply quickspense-db --remote",
     "db:studio": "drizzle-kit studio"
   },

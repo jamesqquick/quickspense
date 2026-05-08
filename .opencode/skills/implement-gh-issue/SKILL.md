@@ -76,7 +76,7 @@ Use the **using-git-worktrees** skill (global) to create the worktree at
 and run `pnpm install`.
 
 Then **immediately** run the **worktree-setup** skill (local to this repo)
-to copy `.wrangler-shared/` and `apps/web/.dev.vars` from the main checkout
+to copy `.wrangler/` and `apps/web/.dev.vars` from the main checkout
 and apply local migrations. This is mandatory. Skipping it produces empty
 list views, missing-secret errors (e.g. "Stripe is not configured"), and
 500s on anything bound to D1 / R2 / KV.
@@ -206,7 +206,7 @@ final message, using this exact structure:
 - Run:
   ```
   pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db \
-    --local --persist-to=../../.wrangler-shared \
+    --local --persist-to=../../.wrangler \
     --command "SELECT ... FROM ..."
   ```
 
@@ -257,7 +257,7 @@ with the equivalent way to exercise the code (e.g. an API call via
 
 **Pairs with:**
 - **using-git-worktrees** (global) — creates the isolated worktree.
-- **worktree-setup** (this repo) — restores `.wrangler-shared/` and
+- **worktree-setup** (this repo) — restores `.wrangler/` and
   `apps/web/.dev.vars`.
 - **cleanup-merged-worktree** (this repo) — for cleanup after the PR is
   merged.
@@ -276,7 +276,7 @@ You: I'm using the implement-gh-issue skill to work issue #42 in a fresh worktre
 [Surface acceptance criteria back to the user]
 [Create .worktrees/feat-issue-42-add-csv-export from origin/main]
 [Run pnpm install]
-[Run worktree-setup: copy .wrangler-shared + apps/web/.dev.vars, run migrations]
+[Run worktree-setup: copy .wrangler + apps/web/.dev.vars, run migrations]
 [Implement: extend /api/expenses/export.ts; update expense list page to link it]
 [pnpm build → passes]
 [Commit: feat(expenses): add CSV export to expense list]
