@@ -10,3 +10,4 @@ export * as parse from "./services/parse.js";
 export * as expenses from "./services/expense.js";
 export * as categories from "./services/category.js";
 export * as invoices from "./services/invoice.js";
+export * as businessProfiles from "./services/businessProfile.js";

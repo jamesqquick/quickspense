@@ -19,7 +19,7 @@ export const users = sqliteTable("users", {
   created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   apiTokens: many(apiTokens),
   categories: many(categories),
@@ -27,7 +27,36 @@ export const usersRelations = relations(users, ({ many }) => ({
   expenses: many(expenses),
   invoices: many(invoices),
   passwordResetTokens: many(passwordResetTokens),
+  businessProfile: one(businessProfiles, {
+    fields: [users.id],
+    references: [businessProfiles.user_id],
+  }),
 }));
+
+// ---------------------------------------------------------------------------
+// Business Profiles (1:1 with users)
+// ---------------------------------------------------------------------------
+export const businessProfiles = sqliteTable("business_profiles", {
+  user_id: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  business_name: text("business_name").notNull(),
+  business_email: text("business_email"),
+  business_phone: text("business_phone"),
+  business_address: text("business_address"),
+  created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const businessProfilesRelations = relations(
+  businessProfiles,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [businessProfiles.user_id],
+      references: [users.id],
+    }),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Sessions

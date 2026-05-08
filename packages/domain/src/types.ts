@@ -12,6 +12,16 @@ export type User = {
   created_at: string;
 };
 
+export type BusinessProfile = {
+  user_id: string;
+  business_name: string;
+  business_email: string | null;
+  business_phone: string | null;
+  business_address: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Session = {
   id: string;
   user_id: string;
