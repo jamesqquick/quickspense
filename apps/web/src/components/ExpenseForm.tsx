@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import type { Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ export function ExpenseForm({
   const [values, setValues] = useState<ExpenseFormValues>(
     initialValues ?? defaultValues,
   );
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const set = (field: keyof ExpenseFormValues) => (
@@ -52,11 +53,11 @@ export function ExpenseForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setValidationError(null);
 
     const amountCents = Math.round(parseFloat(values.amount) * 100);
     if (isNaN(amountCents) || amountCents <= 0) {
-      setError("Amount must be greater than 0");
+      setValidationError("Amount must be greater than 0");
       return;
     }
 
@@ -64,7 +65,7 @@ export function ExpenseForm({
     try {
       await onSubmit(values);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -135,7 +136,11 @@ export function ExpenseForm({
           onChange={set("notes")}
         />
       </div>
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {validationError && (
+        <p className="text-red-400 text-sm" role="alert">
+          {validationError}
+        </p>
+      )}
       <div className="flex gap-3">
         <Button type="submit" variant="success" disabled={submitting}>
           {submitting ? submittingLabel : submitLabel}

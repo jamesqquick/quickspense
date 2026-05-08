@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,6 @@ export function TokenManager() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const fetchTokens = async () => {
@@ -19,7 +19,7 @@ export function TokenManager() {
       const res = await fetch("/api/tokens");
       if (res.ok) setTokens(await res.json());
     } catch {
-      setError("Failed to load tokens");
+      toast.error("Failed to load tokens");
     } finally {
       setLoading(false);
     }
@@ -33,7 +33,6 @@ export function TokenManager() {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
-    setError(null);
     setNewToken(null);
 
     try {
@@ -47,13 +46,14 @@ export function TokenManager() {
         const data = await res.json();
         setNewToken(data.token);
         setNewName("");
+        toast.success("Token created");
         fetchTokens();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to create token");
+        toast.error(data.error || "Failed to create token");
       }
     } catch {
-      setError("Failed to create token");
+      toast.error("Failed to create token");
     } finally {
       setCreating(false);
     }
@@ -61,13 +61,13 @@ export function TokenManager() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Revoke this token? This cannot be undone.")) return;
-    setError(null);
 
     const res = await fetch(`/api/tokens/${id}`, { method: "DELETE" });
     if (res.ok) {
+      toast.success("Token revoked");
       fetchTokens();
     } else {
-      setError("Failed to revoke token");
+      toast.error("Failed to revoke token");
     }
   };
 
@@ -113,8 +113,6 @@ export function TokenManager() {
           {creating ? "Creating..." : "Create Token"}
         </Button>
       </form>
-
-      {error && <p className="text-red-400 text-sm">{error}</p>}
 
       {/* Show newly created token */}
       {newToken && (

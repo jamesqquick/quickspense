@@ -1,5 +1,10 @@
 import type { APIRoute } from "astro";
-import { invoices, createDb, DomainError } from "@quickspense/domain";
+import {
+  invoices,
+  businessProfiles,
+  createDb,
+  DomainError,
+} from "@quickspense/domain";
 import { sendInvoiceEmail } from "../../../../lib/invoiceEmail";
 
 export const POST: APIRoute = async ({ params, locals }) => {
@@ -11,6 +16,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
     // Transition status -> sent (idempotent)
     const invoice = await invoices.markInvoiceSent(db, invoiceId, user.id);
+
+    // Fetch business profile so the email reflects the user's real identity.
+    // Falls back to env defaults if the user hasn't set one up yet.
+    const profile = await businessProfiles.getBusinessProfile(db, user.id);
 
     // env.EMAIL (the send_email binding) is only available on the Cloudflare
     // runtime. In `astro dev` getPlatformProxy does NOT proxy send_email,
@@ -71,6 +80,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         fromName: env.EMAIL_FROM_NAME,
         appUrl: env.APP_URL,
         invoice,
+        businessProfile: profile,
       });
       locals.logger.info("Invoice email sent", {
         invoiceId,

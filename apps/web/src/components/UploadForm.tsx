@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, Upload, X, Check, AlertTriangle } from "lucide-react";
@@ -35,7 +36,6 @@ function formatSize(bytes: number): string {
 
 export function UploadForm() {
   const [items, setItems] = useState<FileItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [batchComplete, setBatchComplete] = useState(false);
@@ -45,13 +45,12 @@ export function UploadForm() {
   const addFiles = useCallback(
     (files: File[]) => {
       if (isUploading) return;
-      setError(null);
       setBatchComplete(false);
 
       setItems((prev) => {
         const remainingSlots = MAX_FILE_COUNT - prev.length;
         if (remainingSlots <= 0) {
-          setError(`Maximum ${MAX_FILE_COUNT} files allowed`);
+          toast.error(`Maximum ${MAX_FILE_COUNT} files allowed`);
           return prev;
         }
 
@@ -77,7 +76,7 @@ export function UploadForm() {
         }
 
         if (rejections.length > 0) {
-          setError(rejections.join("; "));
+          toast.error(rejections.join("; "));
         }
 
         return [...prev, ...accepted];
@@ -147,18 +146,29 @@ export function UploadForm() {
     if (pending.length === 0) return;
 
     setIsUploading(true);
-    setError(null);
     setBatchComplete(false);
 
+    let successes = 0;
+    let failures = 0;
     for (const item of pending) {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, status: "uploading" } : i)),
       );
-      await uploadOne(item);
+      const ok = await uploadOne(item);
+      if (ok) successes += 1;
+      else failures += 1;
     }
 
     setIsUploading(false);
     setBatchComplete(true);
+
+    if (successes > 0 && failures === 0) {
+      toast.success(`${successes} receipt${successes === 1 ? "" : "s"} uploaded`);
+    } else if (successes > 0 && failures > 0) {
+      toast.error(`${successes} uploaded, ${failures} failed`);
+    } else if (failures > 0) {
+      toast.error(`${failures} upload${failures === 1 ? "" : "s"} failed`);
+    }
   };
 
   const handleRetry = async (id: string) => {
@@ -167,14 +177,14 @@ export function UploadForm() {
     if (!target || target.status !== "failed") return;
 
     setIsUploading(true);
-    setError(null);
     setItems((prev) =>
       prev.map((i) =>
         i.id === id ? { ...i, status: "uploading", error: undefined } : i,
       ),
     );
-    await uploadOne(target);
+    const ok = await uploadOne(target);
     setIsUploading(false);
+    if (ok) toast.success("Receipt uploaded");
   };
 
   const totalSize = items.reduce((sum, i) => sum + i.file.size, 0);
@@ -319,8 +329,6 @@ export function UploadForm() {
           ))}
         </ul>
       )}
-
-      {error && <p className="text-red-400 text-sm">{error}</p>}
 
       {batchComplete && allSettled && (
         <Card className="rounded-xl p-3">

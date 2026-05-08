@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import type { InvoiceWithLineItems } from "@quickspense/domain";
+import { toast } from "sonner";
+import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { navigateWithFlashToast } from "@/lib/flashToast";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import {
   InvoiceForm,
@@ -44,9 +46,9 @@ function invoiceToFormValues(invoice: InvoiceWithLineItems): InvoiceFormValues {
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [invoice, setInvoice] = useState<InvoiceWithLineItems | null>(null);
+  const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [devEmailSkipped, setDevEmailSkipped] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
@@ -54,9 +56,19 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}`);
-      if (res.ok) {
-        setInvoice(await res.json());
+      // Fetch invoice and business profile in parallel. Profile is best-effort
+      // (404 = user hasn't set one up yet); we still render the invoice.
+      const [invoiceRes, profileRes] = await Promise.all([
+        fetch(`/api/invoices/${invoiceId}`),
+        fetch("/api/me/business-profile"),
+      ]);
+      if (invoiceRes.ok) {
+        setInvoice(await invoiceRes.json());
+      }
+      if (profileRes.ok) {
+        setProfile(await profileRes.json());
+      } else {
+        setProfile(null);
       }
     } finally {
       setLoading(false);
@@ -81,13 +93,13 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
     const updated = (await res.json()) as InvoiceWithLineItems;
     setInvoice(updated);
     setEditing(false);
+    toast.success("Invoice updated");
   };
 
   const performAction = async (
     path: string,
     method: "POST" | "DELETE" = "POST",
   ) => {
-    setActionError(null);
     setActionPending(true);
     try {
       const res = await fetch(path, { method });
@@ -105,14 +117,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           }
           setInvoice(data);
         } else load();
+        if (path.endsWith("/send")) toast.success("Invoice sent");
+        if (path.endsWith("/void")) toast.success("Invoice voided");
       } else if (method === "DELETE") {
-        window.location.href = "/invoices";
+        navigateWithFlashToast("/invoices", "success", "Invoice deleted");
         return;
       } else {
         load();
       }
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Action failed");
+      toast.error(e instanceof Error ? e.message : "Action failed");
     } finally {
       setActionPending(false);
     }
@@ -197,6 +211,15 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
+          <Button variant="outline" asChild className="w-full sm:w-auto">
+            <a
+              href={`/api/invoices/${invoiceId}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download PDF
+            </a>
+          </Button>
           {invoice.status === "draft" && (
             <>
               <Button
@@ -273,12 +296,6 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         }}
       />
 
-      {actionError && (
-        <p className="text-sm text-red-400" role="alert">
-          {actionError}
-        </p>
-      )}
-
       {devEmailSkipped && (
         <Card className="p-4 bg-yellow-500/10 border-yellow-500/30 space-y-2">
           <p className="text-xs uppercase tracking-wide text-yellow-300">
@@ -295,7 +312,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigator.clipboard?.writeText(devEmailSkipped)}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard?.writeText(devEmailSkipped);
+                  toast.success("Copied to clipboard");
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
             >
               Copy
             </Button>
@@ -320,7 +344,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigator.clipboard?.writeText(payUrl)}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard?.writeText(payUrl);
+                  toast.success("Copied to clipboard");
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
             >
               Copy
             </Button>
@@ -334,16 +365,33 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       )}
 
       <Card className="p-6 space-y-4">
+        {!profile && (
+          <div className="rounded border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+            You haven't set up your business profile yet. Clients will see a
+            generic issuer name on this invoice.{" "}
+            <a href="/settings" className="underline hover:text-yellow-100">
+              Set it up in settings
+            </a>
+            .
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">
-              Bill to
+              From
             </p>
-            <p className="text-white font-medium">{invoice.client_name}</p>
-            <p className="text-slate-400">{invoice.client_email}</p>
-            {invoice.client_address && (
+            <p className="text-white font-medium">
+              {profile?.business_name ?? "—"}
+            </p>
+            {profile?.business_email && (
+              <p className="text-slate-400">{profile.business_email}</p>
+            )}
+            {profile?.business_phone && (
+              <p className="text-slate-400">{profile.business_phone}</p>
+            )}
+            {profile?.business_address && (
               <p className="text-slate-400 whitespace-pre-line mt-1">
-                {invoice.client_address}
+                {profile.business_address}
               </p>
             )}
           </div>
@@ -371,6 +419,19 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
               </p>
             )}
           </div>
+        </div>
+
+        <div className="border-t border-white/10 pt-4">
+          <p className="text-xs uppercase tracking-wide text-slate-400">
+            Bill to
+          </p>
+          <p className="text-white font-medium">{invoice.client_name}</p>
+          <p className="text-slate-400">{invoice.client_email}</p>
+          {invoice.client_address && (
+            <p className="text-slate-400 whitespace-pre-line mt-1">
+              {invoice.client_address}
+            </p>
+          )}
         </div>
 
         <div className="border-t border-white/10 pt-4">

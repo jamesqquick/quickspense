@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import type { Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +13,13 @@ export function CategoryManager() {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     try {
       const res = await fetch("/api/categories");
       if (res.ok) setCategories(await res.json());
     } catch {
-      setError("Failed to load categories");
+      toast.error("Failed to load categories");
     } finally {
       setLoading(false);
     }
@@ -32,7 +32,6 @@ export function CategoryManager() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    setError(null);
 
     const res = await fetch("/api/categories", {
       method: "POST",
@@ -42,16 +41,16 @@ export function CategoryManager() {
 
     if (res.ok) {
       setNewName("");
+      toast.success("Category created");
       fetchCategories();
     } else {
       const data = await res.json();
-      setError(data.error || "Failed to create category");
+      toast.error(data.error || "Failed to create category");
     }
   };
 
   const handleUpdate = async (id: string) => {
     if (!editName.trim()) return;
-    setError(null);
 
     const res = await fetch(`/api/categories/${id}`, {
       method: "PATCH",
@@ -62,23 +61,24 @@ export function CategoryManager() {
     if (res.ok) {
       setEditingId(null);
       setEditName("");
+      toast.success("Category updated");
       fetchCategories();
     } else {
       const data = await res.json();
-      setError(data.error || "Failed to update category");
+      toast.error(data.error || "Failed to update category");
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this category?")) return;
-    setError(null);
 
     const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
     if (res.ok) {
+      toast.success("Category deleted");
       fetchCategories();
     } else {
       const data = await res.json();
-      setError(data.error || "Failed to delete category");
+      toast.error(data.error || "Failed to delete category");
     }
   };
 
@@ -119,8 +119,6 @@ export function CategoryManager() {
         />
         <Button type="submit">Add</Button>
       </form>
-
-      {error && <p className="text-red-400 text-sm">{error}</p>}
 
       {/* Default categories */}
       {globalCategories.length > 0 && (

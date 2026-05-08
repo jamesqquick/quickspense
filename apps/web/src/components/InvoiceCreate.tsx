@@ -1,4 +1,5 @@
 import { InvoiceForm, buildInvoicePayload, type InvoiceFormValues } from "./InvoiceForm";
+import { navigateWithFlashToast } from "@/lib/flashToast";
 
 async function createInvoice(values: InvoiceFormValues) {
   const res = await fetch("/api/invoices", {
@@ -30,14 +31,14 @@ export function InvoiceCreate() {
       }}
       onSubmit={async (values) => {
         const created = await createInvoice(values);
-        window.location.href = `/invoices/${created.id}`;
+        navigateWithFlashToast(`/invoices/${created.id}`, "success", "Draft saved");
       }}
       secondaryAction={{
         label: "Save & send",
         onClick: async (values) => {
           const created = await createInvoice(values);
           await sendInvoice(created.id);
-          window.location.href = `/invoices/${created.id}`;
+          navigateWithFlashToast(`/invoices/${created.id}`, "success", "Invoice sent");
         },
       }}
     />

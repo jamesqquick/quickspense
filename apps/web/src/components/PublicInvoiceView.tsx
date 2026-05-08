@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,9 @@ type PublicInvoice = {
   issued_at: string | null;
   paid_at: string | null;
   issuer_name: string;
+  issuer_email: string | null;
+  issuer_phone: string | null;
+  issuer_address: string | null;
   line_items: Array<{
     id: string;
     description: string;
@@ -39,7 +43,7 @@ export function PublicInvoiceView({
 }) {
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
@@ -49,14 +53,14 @@ export function PublicInvoiceView({
         const res = await fetch(`/api/invoices/public/${token}`);
         if (!res.ok) {
           if (!mounted) return;
-          setError(res.status === 404 ? "Invoice not found" : "Failed to load");
+          setLoadError(res.status === 404 ? "Invoice not found" : "Failed to load");
           return;
         }
         const data = (await res.json()) as PublicInvoice;
         if (!mounted) return;
         setInvoice(data);
       } catch {
-        if (mounted) setError("Failed to load");
+        if (mounted) setLoadError("Failed to load");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -68,7 +72,6 @@ export function PublicInvoiceView({
 
   const startCheckout = async () => {
     setPaying(true);
-    setError(null);
     try {
       const res = await fetch(`/api/invoices/public/${token}/checkout`, {
         method: "POST",
@@ -80,7 +83,7 @@ export function PublicInvoiceView({
       if (!data.url) throw new Error("No checkout URL returned");
       window.location.href = data.url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout failed");
+      toast.error(e instanceof Error ? e.message : "Checkout failed");
       setPaying(false);
     }
   };
@@ -95,10 +98,10 @@ export function PublicInvoiceView({
     );
   }
 
-  if (error || !invoice) {
+  if (loadError || !invoice) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-red-400">{error ?? "Invoice not available"}</p>
+        <p className="text-red-400">{loadError ?? "Invoice not available"}</p>
       </Card>
     );
   }
@@ -112,6 +115,18 @@ export function PublicInvoiceView({
       <div className="text-center space-y-1">
         <p className="text-sm text-slate-400">Invoice from</p>
         <p className="text-xl font-semibold text-white">{invoice.issuer_name}</p>
+        {invoice.issuer_address && (
+          <p className="text-sm text-slate-400 whitespace-pre-line">
+            {invoice.issuer_address}
+          </p>
+        )}
+        {(invoice.issuer_email || invoice.issuer_phone) && (
+          <p className="text-sm text-slate-400">
+            {[invoice.issuer_email, invoice.issuer_phone]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
       </div>
 
       {initialSuccess && isPaid && (
@@ -221,13 +236,7 @@ export function PublicInvoiceView({
         )}
       </Card>
 
-      {error && (
-        <p className="text-sm text-red-400 text-center" role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         {isPayable && (
           <Button size="lg" onClick={startCheckout} disabled={paying}>
             {paying ? "Redirecting..." : `Pay $${formatCents(invoice.total)}`}
@@ -242,6 +251,17 @@ export function PublicInvoiceView({
           <p className="text-red-300 text-center">
             This invoice has been voided.
           </p>
+        )}
+        {(isPayable || isPaid) && (
+          <Button variant="outline" asChild>
+            <a
+              href={`/api/invoices/public/${token}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download PDF
+            </a>
+          </Button>
         )}
       </div>
     </div>

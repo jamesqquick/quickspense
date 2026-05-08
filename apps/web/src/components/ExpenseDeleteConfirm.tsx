@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import type { Expense } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,11 +27,9 @@ export function ExpenseDeleteConfirm({
   onCancel,
 }: ExpenseDeleteConfirmProps) {
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     setDeleting(true);
-    setError(null);
 
     try {
       const res = await fetch(`/api/expenses/${expense.id}`, {
@@ -38,13 +37,14 @@ export function ExpenseDeleteConfirm({
       });
 
       if (res.ok || res.status === 204) {
+        toast.success("Expense deleted");
         onConfirm();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to delete expense");
+        toast.error(data.error || "Failed to delete expense");
       }
     } catch {
-      setError("Failed to delete expense");
+      toast.error("Failed to delete expense");
     } finally {
       setDeleting(false);
     }
@@ -65,7 +65,6 @@ export function ExpenseDeleteConfirm({
             ? This cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
         <DialogFooter>
           <Button
             variant="destructive"

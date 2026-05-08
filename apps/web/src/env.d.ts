@@ -21,6 +21,13 @@ type Runtime = import("@astrojs/cloudflare").Runtime<{
   DB: D1Database;
   BUCKET: R2Bucket;
   WORKER: Fetcher;
+  /**
+   * Cloudflare Browser Rendering binding. Used by `@cloudflare/puppeteer`
+   * to launch a headless browser for PDF generation. Not proxied by
+   * `getPlatformProxy` so it is undefined under `astro dev`; PDF endpoints
+   * gate on `import.meta.env.DEV` and return an HTML preview instead.
+   */
+  BROWSER: Fetcher;
   EMAIL: SendEmail;
   APP_URL: string;
   EMAIL_FROM_ADDRESS: string;

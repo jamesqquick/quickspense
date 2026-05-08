@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { Toaster } from "@/components/ui/toaster";
 ---
 
 <!doctype html>
@@ -51,6 +52,8 @@ import "../styles/global.css";
     </nav>
 
     <slot />
+
+    <Toaster client:load />
 
     <!-- Footer -->
     <footer class="border-t border-white/10 py-12">
