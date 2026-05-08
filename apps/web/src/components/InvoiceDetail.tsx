@@ -184,7 +184,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-white">
@@ -196,15 +196,20 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             {invoice.client_name} &middot; {invoice.client_email}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
           {invoice.status === "draft" && (
             <>
-              <Button variant="outline" onClick={() => setEditing(true)}>
+              <Button
+                variant="outline"
+                onClick={() => setEditing(true)}
+                className="w-full sm:w-auto"
+              >
                 Edit
               </Button>
               <Button
                 disabled={actionPending}
                 onClick={() => performAction(`/api/invoices/${invoiceId}/send`)}
+                className="w-full sm:w-auto"
               >
                 {actionPending ? "Sending..." : "Send invoice"}
               </Button>
@@ -212,7 +217,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 variant="ghost"
                 disabled={actionPending}
                 onClick={requestDelete}
-                className="hover:text-red-400"
+                className="w-full sm:w-auto hover:text-red-400"
               >
                 Delete
               </Button>
@@ -224,6 +229,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 variant="outline"
                 disabled={actionPending}
                 onClick={() => performAction(`/api/invoices/${invoiceId}/send`)}
+                className="w-full sm:w-auto"
               >
                 {actionPending ? "Resending..." : "Resend email"}
               </Button>
@@ -231,7 +237,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 variant="ghost"
                 disabled={actionPending}
                 onClick={requestVoid}
-                className="hover:text-red-400"
+                className="w-full sm:w-auto hover:text-red-400"
               >
                 Void
               </Button>
@@ -242,7 +248,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
               variant="ghost"
               disabled={actionPending}
               onClick={requestDelete}
-              className="hover:text-red-400"
+              className="w-full sm:w-auto hover:text-red-400"
             >
               Delete
             </Button>
