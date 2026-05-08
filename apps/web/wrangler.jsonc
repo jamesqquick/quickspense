@@ -11,7 +11,11 @@
   "vars": {
     "APP_URL": "https://quickspense.com",
     "EMAIL_FROM_ADDRESS": "noreply@quickspense.com",
-    "EMAIL_FROM_NAME": "Quickspense"
+    "EMAIL_FROM_NAME": "Quickspense",
+    "STRIPE_PUBLISHABLE_KEY": "",
+    // Read by lib/stripe.ts to authorize use of `sk_live_...` keys. Only the
+    // production-deployed worker should have this set to "production".
+    "ENVIRONMENT": "production"
   },
   "d1_databases": [
     {

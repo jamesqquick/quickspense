@@ -104,3 +104,47 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+// ---------------------------------------------------------------------------
+// Invoices
+// ---------------------------------------------------------------------------
+export const invoiceStatusSchema = z.enum(["draft", "sent", "paid", "void"]);
+
+export const invoiceLineItemInputSchema = z.object({
+  description: z.string().min(1, "Description is required").max(500),
+  quantity: z.number().positive("Quantity must be greater than 0"),
+  unit_price: z.number().int().nonnegative("Unit price must be 0 or greater"),
+});
+
+export const createInvoiceSchema = z.object({
+  client_name: z.string().min(1, "Client name is required").max(200),
+  client_email: z.string().email("Valid client email is required"),
+  client_address: z.string().max(1000).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Due date must be YYYY-MM-DD"),
+  tax_amount: z.number().int().nonnegative().default(0),
+  line_items: z
+    .array(invoiceLineItemInputSchema)
+    .min(1, "At least one line item is required"),
+});
+
+export const updateInvoiceSchema = z.object({
+  client_name: z.string().min(1).max(200).optional(),
+  client_email: z.string().email().optional(),
+  client_address: z.string().max(1000).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  tax_amount: z.number().int().nonnegative().optional(),
+  line_items: z.array(invoiceLineItemInputSchema).min(1).optional(),
+});
+
+export const listInvoicesSchema = z.object({
+  status: invoiceStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});

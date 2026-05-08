@@ -26,6 +26,13 @@ type Runtime = import("@astrojs/cloudflare").Runtime<{
   EMAIL_FROM_ADDRESS: string;
   EMAIL_FROM_NAME: string;
   WORKER_DEV_URL?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** "production" gates Stripe live-mode key usage. Set in wrangler.jsonc. */
+  ENVIRONMENT?: string;
+  /** Local override to allow `sk_live_...` outside production. Use sparingly. */
+  STRIPE_ALLOW_LIVE_KEY?: string;
 }>;
 
 declare namespace App {
