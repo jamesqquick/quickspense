@@ -1,0 +1,35 @@
+---
+import {
+  invoices,
+  businessProfiles,
+  createDb,
+} from "@quickspense/domain";
+import { renderInvoicePrintHtml } from "../../../lib/invoicePrintHtml";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+
+const env = Astro.locals.runtime.env;
+const db = createDb(env.DB);
+const invoiceId = Astro.params.id!;
+
+const invoice = await invoices.getInvoice(db, invoiceId, Astro.locals.user.id);
+if (!invoice) {
+  return new Response("Invoice not found", { status: 404 });
+}
+
+const profile = await businessProfiles.getBusinessProfile(
+  db,
+  Astro.locals.user.id,
+);
+
+const html = renderInvoicePrintHtml(invoice, profile, {
+  fallbackIssuerName: env.EMAIL_FROM_NAME,
+  appUrl: env.APP_URL,
+});
+
+return new Response(html, {
+  headers: { "Content-Type": "text/html; charset=utf-8" },
+});
+---

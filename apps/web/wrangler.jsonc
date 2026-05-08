@@ -37,6 +37,9 @@
       "remote": true
     }
   ],
+  "browser": {
+    "binding": "BROWSER"
+  },
   "services": [
     {
       "binding": "WORKER",
