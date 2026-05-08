@@ -412,7 +412,7 @@ export function ExpenseReview({ expenseId }: Props) {
           <img
             src={`/api/expenses/${expenseId}/image`}
             alt="Receipt"
-            className="w-full rounded-2xl border border-white/10"
+            className="w-full max-h-[60vh] lg:max-h-none object-contain rounded-2xl border border-white/10 bg-black/20"
           />
         </div>
       )}
