@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,8 +57,7 @@ export function BusinessProfileForm() {
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -71,7 +71,7 @@ export function BusinessProfileForm() {
         }
         if (!res.ok) {
           if (mounted) {
-            setError("Failed to load business profile");
+            toast.error("Failed to load business profile");
             setLoading(false);
           }
           return;
@@ -80,7 +80,7 @@ export function BusinessProfileForm() {
         if (!mounted) return;
         setValues(profileToFormValues(data));
       } catch {
-        if (mounted) setError("Failed to load business profile");
+        if (mounted) toast.error("Failed to load business profile");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -90,26 +90,19 @@ export function BusinessProfileForm() {
     };
   }, []);
 
-  // Auto-clear "Saved" indicator after a few seconds.
-  useEffect(() => {
-    if (!savedAt) return;
-    const t = setTimeout(() => setSavedAt(null), 3000);
-    return () => clearTimeout(t);
-  }, [savedAt]);
-
   const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
     if (!values.business_name.trim()) {
-      setError("Business name is required");
+      setValidationError("Business name is required");
       return;
     }
 
     setSaving(true);
-    setError(null);
 
     try {
       const res = await fetch("/api/me/business-profile", {
@@ -125,9 +118,9 @@ export function BusinessProfileForm() {
 
       const updated = (await res.json()) as BusinessProfile;
       setValues(profileToFormValues(updated));
-      setSavedAt(Date.now());
+      toast.success("Business profile saved");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -202,9 +195,9 @@ export function BusinessProfileForm() {
         />
       </div>
 
-      {error && (
+      {validationError && (
         <p className="text-sm text-red-400" role="alert">
-          {error}
+          {validationError}
         </p>
       )}
 
@@ -212,11 +205,6 @@ export function BusinessProfileForm() {
         <Button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save changes"}
         </Button>
-        {savedAt && (
-          <span className="text-sm text-green-400" aria-live="polite">
-            Saved
-          </span>
-        )}
       </div>
     </form>
   );

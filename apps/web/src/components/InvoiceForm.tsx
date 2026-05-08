@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,7 +88,7 @@ export function InvoiceForm({
   const [submitting, setSubmitting] = useState<"primary" | "secondary" | null>(
     null,
   );
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const update = <K extends keyof InvoiceFormValues>(
     key: K,
@@ -134,17 +135,17 @@ export function InvoiceForm({
     handler: (values: InvoiceFormValues) => Promise<void> | void,
     kind: "primary" | "secondary",
   ) => {
-    setError(null);
+    setValidationError(null);
     const v = validate();
     if (v) {
-      setError(v);
+      setValidationError(v);
       return;
     }
     setSubmitting(kind);
     try {
       await handler(values);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setSubmitting(null);
     }
@@ -245,9 +246,9 @@ export function InvoiceForm({
         />
       </Card>
 
-      {error && (
+      {validationError && (
         <p className="text-sm text-red-400" role="alert">
-          {error}
+          {validationError}
         </p>
       )}
 

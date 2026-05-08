@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { navigateWithFlashToast } from "@/lib/flashToast";
 
 export function DangerZone({ userEmail }: { userEmail: string }) {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const canDelete = confirmText === userEmail;
 
@@ -14,19 +15,18 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
     if (!confirm("This cannot be undone. Delete your account?")) return;
 
     setDeleting(true);
-    setError(null);
 
     try {
       const res = await fetch("/api/account", { method: "DELETE" });
       if (res.ok) {
-        window.location.href = "/login";
+        navigateWithFlashToast("/login", "success", "Account deleted");
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to delete account");
+        toast.error(data.error || "Failed to delete account");
+        setDeleting(false);
       }
     } catch {
-      setError("Failed to delete account");
-    } finally {
+      toast.error("Failed to delete account");
       setDeleting(false);
     }
   };
@@ -48,7 +48,6 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
         placeholder={userEmail}
         className="bg-white/5 border-red-500/30 mb-3 focus:ring-red-500"
       />
-      {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
       <Button
         variant="destructive-solid"
         onClick={handleDelete}

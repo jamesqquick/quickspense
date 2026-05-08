@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import type { Receipt, ParsedReceipt, Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,6 @@ export function ReceiptReview({ receiptId }: Props) {
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Editable fields
   const [merchant, setMerchant] = useState("");
@@ -70,7 +70,7 @@ export function ReceiptReview({ receiptId }: Props) {
         // category is resolved to an ID after categories are fetched
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to load receipt" });
+      toast.error("Failed to load receipt");
     } finally {
       setLoading(false);
     }
@@ -140,15 +140,11 @@ export function ReceiptReview({ receiptId }: Props) {
 
   const handleFinalize = async () => {
     if (!merchant || !total || !date) {
-      setMessage({
-        type: "error",
-        text: "Merchant, amount, and date are required to finalize",
-      });
+      toast.error("Merchant, amount, and date are required to finalize");
       return;
     }
 
     setFinalizing(true);
-    setMessage(null);
     try {
       const res = await fetch(`/api/receipts/${receiptId}/finalize`, {
         method: "POST",
@@ -163,14 +159,14 @@ export function ReceiptReview({ receiptId }: Props) {
         }),
       });
       if (res.ok) {
-        setMessage({ type: "success", text: "Receipt finalized. Expense created." });
+        toast.success("Receipt finalized. Expense created.");
         await fetchData();
       } else {
         const data = await res.json();
-        setMessage({ type: "error", text: data.error || "Finalize failed" });
+        toast.error(data.error || "Finalize failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Finalize failed" });
+      toast.error("Finalize failed");
     } finally {
       setFinalizing(false);
     }
@@ -378,15 +374,6 @@ export function ReceiptReview({ receiptId }: Props) {
               </Select>
             </div>
           </div>
-        )}
-
-        {/* Messages */}
-        {message && (
-          <p
-            className={`text-sm ${message.type === "success" ? "text-green-400" : "text-red-400"}`}
-          >
-            {message.text}
-          </p>
         )}
 
         {/* Actions */}
