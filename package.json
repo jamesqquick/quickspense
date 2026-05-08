@@ -11,6 +11,7 @@
     "build:worker": "pnpm --filter @quickspense/worker build",
     "deploy:web": "pnpm --filter @quickspense/web run deploy",
     "deploy:worker": "pnpm --filter @quickspense/worker run deploy",
+    "preview:worker": "pnpm --filter @quickspense/worker run preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "pnpm --filter @quickspense/web exec wrangler d1 migrations apply quickspense-db --local --persist-to=../../.wrangler",
     "db:migrate:remote": "pnpm --filter @quickspense/web exec wrangler d1 migrations apply quickspense-db --remote",
