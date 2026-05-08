@@ -1,13 +1,13 @@
 import { eq, desc } from "drizzle-orm";
 import type { Database } from "../db/index.js";
-import { parsedReceipts } from "../db/schema.js";
-import type { ParsedReceipt } from "../types.js";
+import { parsedExpenses } from "../db/schema.js";
+import type { ParsedExpense } from "../types.js";
 import { NotFoundError } from "../errors.js";
 
-export async function createParsedReceipt(
+export async function createParsedExpense(
   db: Database,
   params: {
-    receiptId: string;
+    expenseId: string;
     ocrText?: string | null;
     merchant?: string | null;
     totalAmount?: number | null;
@@ -20,12 +20,12 @@ export async function createParsedReceipt(
     confidenceScore?: number | null;
     rawResponse?: string | null;
   },
-): Promise<ParsedReceipt> {
+): Promise<ParsedExpense> {
   const id = crypto.randomUUID();
 
-  await db.insert(parsedReceipts).values({
+  await db.insert(parsedExpenses).values({
     id,
-    receipt_id: params.receiptId,
+    expense_id: params.expenseId,
     ocr_text: params.ocrText ?? null,
     merchant: params.merchant ?? null,
     total_amount: params.totalAmount ?? null,
@@ -41,7 +41,7 @@ export async function createParsedReceipt(
 
   return {
     id,
-    receipt_id: params.receiptId,
+    expense_id: params.expenseId,
     ocr_text: params.ocrText ?? null,
     merchant: params.merchant ?? null,
     total_amount: params.totalAmount ?? null,
@@ -57,22 +57,22 @@ export async function createParsedReceipt(
   };
 }
 
-export async function getLatestParsedReceipt(
+export async function getLatestParsedExpense(
   db: Database,
-  receiptId: string,
-): Promise<ParsedReceipt | null> {
+  expenseId: string,
+): Promise<ParsedExpense | null> {
   const [row] = await db
     .select()
-    .from(parsedReceipts)
-    .where(eq(parsedReceipts.receipt_id, receiptId))
-    .orderBy(desc(parsedReceipts.created_at))
+    .from(parsedExpenses)
+    .where(eq(parsedExpenses.expense_id, expenseId))
+    .orderBy(desc(parsedExpenses.created_at))
     .limit(1);
   return row ?? null;
 }
 
-export async function updateParsedReceiptFields(
+export async function updateParsedExpenseFields(
   db: Database,
-  parsedReceiptId: string,
+  parsedExpenseId: string,
   fields: {
     merchant?: string;
     total_amount?: number;
@@ -83,8 +83,7 @@ export async function updateParsedReceiptFields(
     purchase_date?: string;
     suggested_category?: string | null;
   },
-): Promise<ParsedReceipt> {
-  // Filter out undefined values to build the SET clause
+): Promise<ParsedExpense> {
   const updates: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
@@ -95,21 +94,21 @@ export async function updateParsedReceiptFields(
   if (Object.keys(updates).length === 0) {
     const [existing] = await db
       .select()
-      .from(parsedReceipts)
-      .where(eq(parsedReceipts.id, parsedReceiptId));
-    if (!existing) throw new NotFoundError("ParsedReceipt", parsedReceiptId);
+      .from(parsedExpenses)
+      .where(eq(parsedExpenses.id, parsedExpenseId));
+    if (!existing) throw new NotFoundError("ParsedExpense", parsedExpenseId);
     return existing;
   }
 
   await db
-    .update(parsedReceipts)
+    .update(parsedExpenses)
     .set(updates)
-    .where(eq(parsedReceipts.id, parsedReceiptId));
+    .where(eq(parsedExpenses.id, parsedExpenseId));
 
   const [updated] = await db
     .select()
-    .from(parsedReceipts)
-    .where(eq(parsedReceipts.id, parsedReceiptId));
-  if (!updated) throw new NotFoundError("ParsedReceipt", parsedReceiptId);
+    .from(parsedExpenses)
+    .where(eq(parsedExpenses.id, parsedExpenseId));
+  if (!updated) throw new NotFoundError("ParsedExpense", parsedExpenseId);
   return updated;
 }

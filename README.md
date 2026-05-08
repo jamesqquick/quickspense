@@ -2,13 +2,16 @@
 
 AI-powered receipt scanning and expense tracking, built entirely on Cloudflare's Developer Platform.
 
-Upload a receipt photo, and AI extracts the merchant, amount, date, and category in seconds. Review the results, make edits, and finalize to create expense records. No external APIs, no third-party infrastructure -- everything runs on Cloudflare.
+Create expenses manually or by uploading a receipt photo. The AI extracts the merchant, amount, date, and category in seconds; you review and finalize. No external APIs, no third-party infrastructure -- everything runs on Cloudflare.
 
 ## How It Works
 
-1. **Upload** a receipt image (JPEG, PNG, or WEBP)
-2. **AI extracts** merchant, amounts, date, and category using a two-stage pipeline
-3. **Review & finalize** the parsed data to create an expense record
+Two ways to add an expense:
+
+- **Manual** -- enter the details yourself; optionally attach a receipt image for your records.
+- **From a receipt image** -- upload a photo (JPEG, PNG, or WEBP). AI parses it into a `needs_review` expense, you confirm the fields, and it becomes `active`.
+
+A single `expenses` concept covers both flows. Status lifecycle: `processing` → `needs_review` → `active` for image uploads, or straight to `active` for manual entries. `failed` if AI parsing errors -- you can reprocess or fill it in by hand.
 
 ## Features
 
@@ -26,7 +29,7 @@ Every layer of Quickspense runs on Cloudflare's Developer Platform:
 | Product | Usage |
 |---|---|
 | **[Workers](https://developers.cloudflare.com/workers/)** | Two Workers deployed independently -- the Astro SSR web app and the background processing worker |
-| **[D1](https://developers.cloudflare.com/d1/)** | Serverless SQL database storing users, sessions, receipts, expenses, categories, and API tokens |
+| **[D1](https://developers.cloudflare.com/d1/)** | Serverless SQL database storing users, sessions, expenses (with optional receipt image metadata), parsed AI results, categories, and API tokens |
 | **[R2](https://developers.cloudflare.com/r2/)** | Object storage for receipt images with zero egress fees |
 | **[Workers AI](https://developers.cloudflare.com/workers-ai/)** | On-device AI models for OCR (`@cf/google/gemma-3-12b-it`) and data extraction (`@cf/meta/llama-3.1-8b-instruct`) |
 | **[Workflows](https://developers.cloudflare.com/workflows/)** | Durable, retryable multi-step receipt processing with automatic recovery |
@@ -170,7 +173,7 @@ Quickspense includes a full MCP server that exposes tools and resources for AI a
 2. Create an API token
 3. Configure your MCP client with the worker URL and bearer token
 
-The MCP server provides 10 tools (create expenses, upload receipts, manage categories, etc.) and 4 resources (expense lists, receipt data, category lists, dashboard summary).
+The MCP server provides expense and category management tools (`list_expenses`, `get_expense`, `create_expense`, `update_expense`, `update_expense_parsed_fields`, `finalize_expense`, `reprocess_expense`, `list_categories`, `create_category`) and 3 resources (expense detail, expense OCR text, dashboard summary).
 
 ## License
 

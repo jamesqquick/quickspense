@@ -1,31 +1,32 @@
 import { useState, useEffect } from "react";
-import type { Expense, ExpenseSummary, Receipt } from "@quickspense/domain";
+import type { Expense, ExpenseSummary } from "@quickspense/domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function formatCents(cents: number): string {
+function formatCents(cents: number | null): string {
+  if (cents === null) return "—";
   return (cents / 100).toFixed(2);
 }
 
 export function DashboardSummary() {
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
-  const [needsReview, setNeedsReview] = useState<Receipt[]>([]);
-  const [receiptCounts, setReceiptCounts] = useState<Record<string, number>>({});
+  const [needsReview, setNeedsReview] = useState<Expense[]>([]);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [expRes, summaryRes, reviewRes, allReceiptsRes] = await Promise.all([
-          fetch("/api/expenses?limit=5"),
+        const [recentRes, summaryRes, reviewRes, countsRes] = await Promise.all([
+          fetch("/api/expenses?status=active&limit=5"),
           fetch("/api/dashboard/summary"),
-          fetch("/api/receipts?status=needs_review&limit=5"),
-          fetch("/api/dashboard/receipt-counts"),
+          fetch("/api/expenses?status=needs_review&limit=5"),
+          fetch("/api/dashboard/expense-counts"),
         ]);
 
-        if (expRes.ok) {
-          const data = await expRes.json();
+        if (recentRes.ok) {
+          const data = await recentRes.json();
           setRecentExpenses(data.items);
         }
         if (summaryRes.ok) setSummary(await summaryRes.json());
@@ -33,7 +34,7 @@ export function DashboardSummary() {
           const data = await reviewRes.json();
           setNeedsReview(data.items);
         }
-        if (allReceiptsRes.ok) setReceiptCounts(await allReceiptsRes.json());
+        if (countsRes.ok) setStatusCounts(await countsRes.json());
       } catch {
         // ignore
       } finally {
@@ -113,24 +114,34 @@ export function DashboardSummary() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent>
-            <p className="text-sm text-slate-400">Needs Review</p>
-            <p className="text-3xl font-bold text-blue-400 mt-1">
-              {receiptCounts["needs_review"] ?? 0}
-            </p>
-            <p className="text-sm text-slate-500 mt-1">receipts awaiting review</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <p className="text-sm text-slate-400">Processing</p>
-            <p className="text-3xl font-bold text-yellow-400 mt-1">
-              {receiptCounts["processing"] ?? 0}
-            </p>
-            <p className="text-sm text-slate-500 mt-1">receipts being processed</p>
-          </CardContent>
-        </Card>
+        <a
+          href="/expenses?status=needs_review"
+          className="block transition-transform duration-200 hover:scale-[1.01]"
+        >
+          <Card>
+            <CardContent>
+              <p className="text-sm text-slate-400">Needs Review</p>
+              <p className="text-3xl font-bold text-blue-400 mt-1">
+                {statusCounts["needs_review"] ?? 0}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">expenses awaiting review</p>
+            </CardContent>
+          </Card>
+        </a>
+        <a
+          href="/expenses?status=processing"
+          className="block transition-transform duration-200 hover:scale-[1.01]"
+        >
+          <Card>
+            <CardContent>
+              <p className="text-sm text-slate-400">Processing</p>
+              <p className="text-3xl font-bold text-yellow-400 mt-1">
+                {statusCounts["processing"] ?? 0}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">receipts being parsed</p>
+            </CardContent>
+          </Card>
+        </a>
       </div>
 
       {/* Spending by category */}
@@ -165,9 +176,7 @@ export function DashboardSummary() {
         {/* Recent expenses */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">
-              Recent Expenses
-            </h2>
+            <h2 className="text-lg font-semibold text-white">Recent Expenses</h2>
             <a
               href="/expenses"
               className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200"
@@ -181,56 +190,59 @@ export function DashboardSummary() {
             <Card>
               <div className="divide-y divide-white/5">
                 {recentExpenses.map((exp) => (
-                  <div
+                  <a
                     key={exp.id}
-                    className="flex items-center justify-between p-4"
+                    href={`/expenses/${exp.id}`}
+                    className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors duration-200 cursor-pointer"
                   >
                     <div>
                       <p className="font-medium text-white text-sm">
-                        {exp.merchant}
+                        {exp.merchant ?? "(unnamed)"}
                       </p>
-                      <p className="text-xs text-slate-500">{exp.expense_date}</p>
+                      <p className="text-xs text-slate-500">
+                        {exp.expense_date ?? ""}
+                      </p>
                     </div>
                     <span className="font-medium text-white text-sm">
                       ${formatCents(exp.amount)}
                     </span>
-                  </div>
+                  </a>
                 ))}
               </div>
             </Card>
           )}
         </div>
 
-        {/* Receipts needing review */}
+        {/* Needs review */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">
-              Needs Review
-            </h2>
+            <h2 className="text-lg font-semibold text-white">Needs Review</h2>
             <a
-              href="/receipts"
+              href="/expenses?status=needs_review"
               className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200"
             >
               View all
             </a>
           </div>
           {needsReview.length === 0 ? (
-            <p className="text-slate-500 text-sm">No receipts need review.</p>
+            <p className="text-slate-500 text-sm">
+              No expenses need review.
+            </p>
           ) : (
             <Card>
               <div className="divide-y divide-white/5">
-                {needsReview.map((r) => (
+                {needsReview.map((e) => (
                   <a
-                    key={r.id}
-                    href={`/receipts/${r.id}`}
+                    key={e.id}
+                    href={`/expenses/${e.id}`}
                     className="flex items-center justify-between p-4 hover:bg-white/5 block transition-colors duration-200 cursor-pointer"
                   >
                     <div>
                       <p className="font-medium text-white text-sm">
-                        {r.file_name}
+                        {e.merchant || e.file_name || "(pending parse)"}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {new Date(r.created_at).toLocaleDateString()}
+                        {new Date(e.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <span className="text-primary-400 text-sm">Review &rarr;</span>

@@ -15,6 +15,8 @@ type FileItem = {
   file: File;
   preview: string;
   status: UploadStatus;
+  /** Set when status === "success". The expense id returned by the API. */
+  expenseId?: string;
   error?: string;
 };
 
@@ -111,12 +113,18 @@ export function UploadForm() {
   const uploadOne = useCallback(async (item: FileItem): Promise<boolean> => {
     const form = new FormData();
     form.append("file", item.file);
+    form.append("parse", "true");
 
     try {
-      const res = await fetch("/api/receipts", { method: "POST", body: form });
+      const res = await fetch("/api/expenses", { method: "POST", body: form });
       if (res.ok) {
+        const expense = (await res.json()) as { id: string };
         setItems((prev) =>
-          prev.map((i) => (i.id === item.id ? { ...i, status: "success" } : i)),
+          prev.map((i) =>
+            i.id === item.id
+              ? { ...i, status: "success", expenseId: expense.id }
+              : i,
+          ),
         );
         return true;
       }
@@ -163,7 +171,7 @@ export function UploadForm() {
     setBatchComplete(true);
 
     if (successes > 0 && failures === 0) {
-      toast.success(`${successes} receipt${successes === 1 ? "" : "s"} uploaded`);
+      toast.success(`${successes} expense${successes === 1 ? "" : "s"} created`);
     } else if (successes > 0 && failures > 0) {
       toast.error(`${successes} uploaded, ${failures} failed`);
     } else if (failures > 0) {
@@ -184,11 +192,15 @@ export function UploadForm() {
     );
     const ok = await uploadOne(target);
     setIsUploading(false);
-    if (ok) toast.success("Receipt uploaded");
+    if (ok) toast.success("Expense created");
   };
 
   const totalSize = items.reduce((sum, i) => sum + i.file.size, 0);
-  const successCount = items.filter((i) => i.status === "success").length;
+  const successItems = items.filter(
+    (i): i is FileItem & { expenseId: string } =>
+      i.status === "success" && !!i.expenseId,
+  );
+  const successCount = successItems.length;
   const failedCount = items.filter((i) => i.status === "failed").length;
   const pendingCount = items.filter((i) => i.status === "pending").length;
   const hasItems = items.length > 0;
@@ -305,6 +317,11 @@ export function UploadForm() {
                   </p>
                 </div>
                 <StatusBadge status={item.status} />
+                {item.status === "success" && item.expenseId && (
+                  <Button asChild variant="outline" size="sm" className="text-xs px-2">
+                    <a href={`/expenses/${item.expenseId}`}>View</a>
+                  </Button>
+                )}
                 {item.status === "failed" && !isUploading && (
                   <Button
                     variant="link"
@@ -344,11 +361,11 @@ export function UploadForm() {
         </Card>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex-1"
+          className="flex-1 min-w-[10rem]"
         >
           {isUploading
             ? "Uploading..."
@@ -357,8 +374,8 @@ export function UploadForm() {
               : "Upload"}
         </Button>
         {batchComplete && successCount > 0 && (
-          <Button variant="outline" asChild className="flex-1">
-            <a href="/receipts">View Receipts</a>
+          <Button variant="outline" asChild>
+            <a href="/expenses?status=needs_review">View All</a>
           </Button>
         )}
       </div>

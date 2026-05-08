@@ -1,21 +1,36 @@
-import { eq, and, or, desc, gte, lte, like, sql, sum, count } from "drizzle-orm";
+import { eq, and, or, desc, gte, lte, like, sql, count } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { expenses, categories } from "../db/schema.js";
-import type { Expense, ExpenseSummary, PaginatedResult } from "../types.js";
-import { NotFoundError } from "../errors.js";
+import type { Expense, ExpenseStatus, ExpenseSummary, PaginatedResult } from "../types.js";
+import { NotFoundError, InvalidStateTransitionError } from "../errors.js";
 
-export async function createExpenseFromReceipt(
+// Allowed status transitions. Manual expenses are born `active`. Image-uploaded
+// expenses pass through processing -> needs_review -> active. `failed` is a
+// terminal-ish state from which the user can reprocess (back to processing).
+const VALID_TRANSITIONS: Record<ExpenseStatus, ExpenseStatus[]> = {
+  active: [],
+  processing: ["needs_review", "failed"],
+  needs_review: ["processing", "active"],
+  failed: ["processing"],
+};
+
+type FileMeta = {
+  fileKey: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+};
+
+/**
+ * Create an expense in `processing` state from an uploaded receipt image.
+ * The workflow will populate parsed data and move it to `needs_review`.
+ */
+export async function createExpenseForUpload(
   db: Database,
   params: {
-    receiptId: string;
     userId: string;
-    merchant: string;
-    amount: number;
-    currency: string;
-    date: string;
-    categoryId?: string;
-    notes?: string;
+    file: FileMeta;
   },
 ): Promise<Expense> {
   const id = crypto.randomUUID();
@@ -24,13 +39,19 @@ export async function createExpenseFromReceipt(
   await db.insert(expenses).values({
     id,
     user_id: params.userId,
-    receipt_id: params.receiptId,
-    merchant: params.merchant,
-    amount: params.amount,
-    currency: params.currency,
-    expense_date: params.date,
-    category_id: params.categoryId ?? null,
-    notes: params.notes ?? null,
+    status: "processing",
+    merchant: null,
+    amount: null,
+    currency: "USD",
+    expense_date: null,
+    category_id: null,
+    notes: null,
+    file_key: params.file.fileKey,
+    file_name: params.file.fileName,
+    file_size: params.file.fileSize,
+    file_type: params.file.fileType,
+    error_message: null,
+    workflow_id: null,
     created_at: now,
     updated_at: now,
   });
@@ -38,18 +59,28 @@ export async function createExpenseFromReceipt(
   return {
     id,
     user_id: params.userId,
-    receipt_id: params.receiptId,
-    merchant: params.merchant,
-    amount: params.amount,
-    currency: params.currency,
-    expense_date: params.date,
-    category_id: params.categoryId ?? null,
-    notes: params.notes ?? null,
+    status: "processing",
+    merchant: null,
+    amount: null,
+    currency: "USD",
+    expense_date: null,
+    category_id: null,
+    notes: null,
+    file_key: params.file.fileKey,
+    file_name: params.file.fileName,
+    file_size: params.file.fileSize,
+    file_type: params.file.fileType,
+    error_message: null,
+    workflow_id: null,
     created_at: now,
     updated_at: now,
   };
 }
 
+/**
+ * Create an expense manually with all fields provided. Optionally attach an
+ * image (no parsing). Result is `active` immediately.
+ */
 export async function createManualExpense(
   db: Database,
   params: {
@@ -60,6 +91,7 @@ export async function createManualExpense(
     date: string;
     categoryId?: string;
     notes?: string;
+    file?: FileMeta;
   },
 ): Promise<Expense> {
   const id = crypto.randomUUID();
@@ -68,13 +100,19 @@ export async function createManualExpense(
   await db.insert(expenses).values({
     id,
     user_id: params.userId,
-    receipt_id: null,
+    status: "active",
     merchant: params.merchant,
     amount: params.amount,
     currency: params.currency,
     expense_date: params.date,
     category_id: params.categoryId ?? null,
     notes: params.notes ?? null,
+    file_key: params.file?.fileKey ?? null,
+    file_name: params.file?.fileName ?? null,
+    file_size: params.file?.fileSize ?? null,
+    file_type: params.file?.fileType ?? null,
+    error_message: null,
+    workflow_id: null,
     created_at: now,
     updated_at: now,
   });
@@ -82,13 +120,19 @@ export async function createManualExpense(
   return {
     id,
     user_id: params.userId,
-    receipt_id: null,
+    status: "active",
     merchant: params.merchant,
     amount: params.amount,
     currency: params.currency,
     expense_date: params.date,
     category_id: params.categoryId ?? null,
     notes: params.notes ?? null,
+    file_key: params.file?.fileKey ?? null,
+    file_name: params.file?.fileName ?? null,
+    file_size: params.file?.fileSize ?? null,
+    file_type: params.file?.fileType ?? null,
+    error_message: null,
+    workflow_id: null,
     created_at: now,
     updated_at: now,
   };
@@ -98,6 +142,7 @@ export async function listExpenses(
   db: Database,
   userId: string,
   opts: {
+    status?: ExpenseStatus;
     startDate?: string;
     endDate?: string;
     categoryId?: string;
@@ -106,9 +151,10 @@ export async function listExpenses(
     offset?: number;
   } = {},
 ): Promise<PaginatedResult<Expense>> {
-  const { startDate, endDate, categoryId, search, limit = 20, offset = 0 } = opts;
+  const { status, startDate, endDate, categoryId, search, limit = 20, offset = 0 } = opts;
 
   const conditions: SQL[] = [eq(expenses.user_id, userId)];
+  if (status) conditions.push(eq(expenses.status, status));
   if (startDate) conditions.push(gte(expenses.expense_date, startDate));
   if (endDate) conditions.push(lte(expenses.expense_date, endDate));
   if (categoryId) conditions.push(eq(expenses.category_id, categoryId));
@@ -126,7 +172,7 @@ export async function listExpenses(
       .select()
       .from(expenses)
       .where(where)
-      .orderBy(desc(expenses.expense_date), desc(expenses.created_at))
+      .orderBy(desc(expenses.updated_at), desc(expenses.created_at))
       .limit(limit)
       .offset(offset) as Promise<Expense[]>,
     db
@@ -141,12 +187,13 @@ export async function listExpenses(
 export async function getExpense(
   db: Database,
   expenseId: string,
-  userId: string,
+  userId?: string,
 ): Promise<Expense | null> {
-  const [row] = await db
-    .select()
-    .from(expenses)
-    .where(and(eq(expenses.id, expenseId), eq(expenses.user_id, userId)));
+  const conditions = userId
+    ? and(eq(expenses.id, expenseId), eq(expenses.user_id, userId))
+    : eq(expenses.id, expenseId);
+
+  const [row] = await db.select().from(expenses).where(conditions);
   return (row as Expense | undefined) ?? null;
 }
 
@@ -183,6 +230,76 @@ export async function updateExpense(
   return updated;
 }
 
+export async function updateExpenseStatus(
+  db: Database,
+  expenseId: string,
+  newStatus: ExpenseStatus,
+  errorMessage?: string,
+): Promise<void> {
+  const expense = await getExpense(db, expenseId);
+  if (!expense) throw new NotFoundError("Expense", expenseId);
+
+  const allowed = VALID_TRANSITIONS[expense.status];
+  if (!allowed.includes(newStatus)) {
+    throw new InvalidStateTransitionError(expense.status, newStatus);
+  }
+
+  await db
+    .update(expenses)
+    .set({
+      status: newStatus,
+      error_message: errorMessage ?? null,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(expenses.id, expenseId));
+}
+
+export async function updateExpenseWorkflowId(
+  db: Database,
+  expenseId: string,
+  workflowId: string,
+): Promise<void> {
+  await db
+    .update(expenses)
+    .set({
+      workflow_id: workflowId,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(expenses.id, expenseId));
+}
+
+/**
+ * Finalize a receipt-uploaded expense: copy the user-confirmed parsed values
+ * into the expense fields and transition to `active`. Bypasses the state
+ * machine check; callers must verify status is `needs_review` first.
+ */
+export async function finalizeExpense(
+  db: Database,
+  expenseId: string,
+  fields: {
+    merchant: string;
+    amount: number;
+    currency: string;
+    expense_date: string;
+    category_id?: string;
+    notes?: string;
+  },
+): Promise<void> {
+  await db
+    .update(expenses)
+    .set({
+      status: "active",
+      merchant: fields.merchant,
+      amount: fields.amount,
+      currency: fields.currency,
+      expense_date: fields.expense_date,
+      category_id: fields.category_id ?? null,
+      notes: fields.notes ?? null,
+      updated_at: sql`datetime('now')`,
+    })
+    .where(eq(expenses.id, expenseId));
+}
+
 export async function deleteExpense(
   db: Database,
   expenseId: string,
@@ -196,6 +313,30 @@ export async function deleteExpense(
     .where(and(eq(expenses.id, expenseId), eq(expenses.user_id, userId)));
 }
 
+export async function countExpensesByStatus(
+  db: Database,
+  userId: string,
+): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      status: expenses.status,
+      count: count(),
+    })
+    .from(expenses)
+    .where(eq(expenses.user_id, userId))
+    .groupBy(expenses.status);
+
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.status] = row.count;
+  }
+  return counts;
+}
+
+/**
+ * Spending summary across the user's `active` expenses. Excludes processing /
+ * needs_review / failed rows so unconfirmed AI parses don't pollute totals.
+ */
 export async function getExpenseSummary(
   db: Database,
   userId: string,
@@ -203,13 +344,15 @@ export async function getExpenseSummary(
 ): Promise<ExpenseSummary> {
   const { startDate, endDate } = opts;
 
-  const conditions: SQL[] = [eq(expenses.user_id, userId)];
+  const conditions: SQL[] = [
+    eq(expenses.user_id, userId),
+    eq(expenses.status, "active"),
+  ];
   if (startDate) conditions.push(gte(expenses.expense_date, startDate));
   if (endDate) conditions.push(lte(expenses.expense_date, endDate));
 
   const where = and(...conditions);
 
-  // Total and count
   const [totals] = await db
     .select({
       total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`,
@@ -218,7 +361,6 @@ export async function getExpenseSummary(
     .from(expenses)
     .where(where);
 
-  // By category
   const byCategory = await db
     .select({
       category_id: expenses.category_id,

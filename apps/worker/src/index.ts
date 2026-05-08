@@ -1,17 +1,17 @@
 import { createMcpHandler } from "agents/mcp";
 import { createDb, createLogger, newRequestId, auth } from "@quickspense/domain";
 import { createServer } from "./mcp/server.js";
-import type { ReceiptStatusDO } from "./receipt-status.js";
+import type { ExpenseStatusDO } from "./expense-status.js";
 
-export { ReceiptProcessingWorkflow } from "./workflow.js";
-export { ReceiptStatusDO } from "./receipt-status.js";
+export { ExpenseProcessingWorkflow } from "./workflow.js";
+export { ExpenseStatusDO } from "./expense-status.js";
 
 export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
   AI: Ai;
-  RECEIPT_WORKFLOW: Workflow;
-  RECEIPT_STATUS_DO: DurableObjectNamespace<ReceiptStatusDO>;
+  EXPENSE_WORKFLOW: Workflow;
+  EXPENSE_STATUS_DO: DurableObjectNamespace<ExpenseStatusDO>;
 }
 
 export default {
@@ -31,34 +31,34 @@ export default {
 
     const db = createDb(env.DB);
 
-    // WebSocket upgrade route for real-time receipt status updates
-    const wsMatch = url.pathname.match(/^\/ws\/receipt\/([a-zA-Z0-9_-]+)$/);
+    // WebSocket upgrade route for real-time expense status updates.
+    const wsMatch = url.pathname.match(/^\/ws\/expense\/([a-zA-Z0-9_-]+)$/);
     if (wsMatch) {
-      const receiptId = wsMatch[1];
+      const expenseId = wsMatch[1];
       const upgradeHeader = request.headers.get("Upgrade");
       if (upgradeHeader !== "websocket") {
         return new Response("Expected WebSocket upgrade", { status: 426 });
       }
 
-      logger.info("WebSocket upgrade request", { receiptId });
-      const id = env.RECEIPT_STATUS_DO.idFromName(receiptId);
-      const stub = env.RECEIPT_STATUS_DO.get(id);
+      logger.info("WebSocket upgrade request", { expenseId });
+      const id = env.EXPENSE_STATUS_DO.idFromName(expenseId);
+      const stub = env.EXPENSE_STATUS_DO.get(id);
       return stub.fetch(request);
     }
 
-    // Workflow trigger endpoint (called via Service Binding from web app)
+    // Workflow trigger endpoint (called via Service Binding from web app).
     if (url.pathname === "/workflow/trigger" && request.method === "POST") {
       try {
-        const { receiptId, userId } = (await request.json()) as {
-          receiptId: string;
+        const { expenseId, userId } = (await request.json()) as {
+          expenseId: string;
           userId: string;
         };
-        logger.info("Workflow trigger received", { receiptId, userId });
-        const instance = await env.RECEIPT_WORKFLOW.create({
-          params: { receiptId, userId },
+        logger.info("Workflow trigger received", { expenseId, userId });
+        const instance = await env.EXPENSE_WORKFLOW.create({
+          params: { expenseId, userId },
         });
         logger.info("Workflow instance created", {
-          receiptId,
+          expenseId,
           userId,
           workflowId: instance.id,
         });
@@ -72,7 +72,6 @@ export default {
       }
     }
 
-    // MCP endpoint with bearer token auth
     if (url.pathname.startsWith("/mcp")) {
       const authHeader = request.headers.get("Authorization");
       if (!authHeader?.startsWith("Bearer ")) {

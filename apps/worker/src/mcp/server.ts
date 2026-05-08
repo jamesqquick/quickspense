@@ -1,7 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
-  receipts,
   parse,
   expenses,
   categories,
@@ -57,127 +56,16 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     version: "1.0.0",
   });
 
-  // --- RECEIPT TOOLS ---
-
-  server.tool(
-    "list_receipts",
-    "List user's receipts, optionally filtered by status",
-    {
-      status: z
-        .enum(["uploaded", "processing", "needs_review", "finalized", "failed"])
-        .optional()
-        .describe("Filter by receipt status"),
-      limit: z.number().int().min(1).max(100).default(20).describe("Max results"),
-      offset: z.number().int().min(0).default(0).describe("Offset for pagination"),
-    },
-    async ({ status, limit, offset }) =>
-      runTool(() => receipts.listReceipts(db, userId, { status, limit, offset })),
-  );
-
-  server.tool(
-    "get_receipt",
-    "Get receipt detail including latest parsed data",
-    {
-      receiptId: z.string().describe("Receipt ID"),
-    },
-    async ({ receiptId }) =>
-      runTool(async () => {
-        const receipt = await receipts.getReceipt(db, receiptId, userId);
-        if (!receipt) throw new NotFoundError("Receipt", receiptId);
-        const parsed = await parse.getLatestParsedReceipt(db, receiptId);
-        return { receipt, parsed };
-      }),
-  );
-
-  server.tool(
-    "reprocess_receipt",
-    "Trigger fresh AI processing for a receipt",
-    {
-      receiptId: z.string().describe("Receipt ID"),
-    },
-    async ({ receiptId }) =>
-      runTool(async () => {
-        const receipt = await receipts.getReceipt(db, receiptId, userId);
-        if (!receipt) throw new NotFoundError("Receipt", receiptId);
-        if (!["needs_review", "failed"].includes(receipt.status)) {
-          throw new InvalidStateTransitionError(receipt.status, "processing");
-        }
-        const instance = await env.RECEIPT_WORKFLOW.create({
-          params: { receiptId, userId },
-        });
-        await receipts.updateReceiptWorkflowId(db, receiptId, instance.id);
-        return `Reprocessing started. Workflow ID: ${instance.id}`;
-      }),
-  );
-
-  server.tool(
-    "update_receipt_fields",
-    "Edit parsed fields on a receipt",
-    {
-      receiptId: z.string().describe("Receipt ID"),
-      merchant: z.string().optional().describe("Merchant name"),
-      total_amount: z.number().int().optional().describe("Total in cents"),
-      subtotal_amount: z.number().int().nullable().optional().describe("Subtotal in cents"),
-      tax_amount: z.number().int().nullable().optional().describe("Tax in cents"),
-      tip_amount: z.number().int().nullable().optional().describe("Tip in cents"),
-      currency: z.string().max(3).optional().describe("Currency code"),
-      purchase_date: z.string().optional().describe("Date YYYY-MM-DD"),
-      suggested_category: z.string().nullable().optional().describe("Category suggestion"),
-    },
-    async ({ receiptId, ...fields }) =>
-      runTool(async () => {
-        // Authz: confirm receipt belongs to user before touching parsed data
-        const receipt = await receipts.getReceipt(db, receiptId, userId);
-        if (!receipt) throw new NotFoundError("Receipt", receiptId);
-
-        const latest = await parse.getLatestParsedReceipt(db, receiptId);
-        if (!latest) throw new NotFoundError("ParsedReceipt for", receiptId);
-
-        const updated = await parse.updateParsedReceiptFields(db, latest.id, fields);
-        return updated;
-      }),
-  );
-
-  server.tool(
-    "finalize_receipt",
-    "Confirm receipt and create an expense record",
-    {
-      receiptId: z.string().describe("Receipt ID"),
-      merchant: z.string().describe("Merchant name"),
-      amount: z.number().int().positive().describe("Amount in cents"),
-      currency: z.string().max(3).describe("Currency code"),
-      expense_date: z.string().describe("Date YYYY-MM-DD"),
-      category_id: z.string().optional().describe("Category ID"),
-      notes: z.string().optional().describe("Notes"),
-    },
-    async ({ receiptId, merchant, amount, currency, expense_date, category_id, notes }) =>
-      runTool(async () => {
-        const receipt = await receipts.getReceipt(db, receiptId, userId);
-        if (!receipt) throw new NotFoundError("Receipt", receiptId);
-        if (receipt.status !== "needs_review") {
-          throw new InvalidStateTransitionError(receipt.status, "finalized");
-        }
-        const expense = await expenses.createExpenseFromReceipt(db, {
-          receiptId,
-          userId,
-          merchant,
-          amount,
-          currency,
-          date: expense_date,
-          categoryId: category_id,
-          notes,
-        });
-        await receipts.finalizeReceipt(db, receiptId);
-        return expense;
-      }),
-  );
-
   // --- EXPENSE TOOLS ---
 
   server.tool(
     "list_expenses",
-    "List expenses with optional filters. Use search to find expenses by merchant name or notes.",
+    "List expenses with optional status/date/category filters. Use search to find expenses by merchant or notes.",
     {
+      status: z
+        .enum(["active", "processing", "needs_review", "failed"])
+        .optional()
+        .describe("Filter by expense status"),
       startDate: z.string().optional().describe("Start date YYYY-MM-DD"),
       endDate: z.string().optional().describe("End date YYYY-MM-DD"),
       categoryId: z.string().optional().describe("Category ID filter"),
@@ -185,15 +73,38 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
       limit: z.number().int().min(1).max(100).default(20),
       offset: z.number().int().min(0).default(0),
     },
-    async ({ startDate, endDate, categoryId, search, limit, offset }) =>
+    async ({ status, startDate, endDate, categoryId, search, limit, offset }) =>
       runTool(() =>
-        expenses.listExpenses(db, userId, { startDate, endDate, categoryId, search, limit, offset }),
+        expenses.listExpenses(db, userId, {
+          status,
+          startDate,
+          endDate,
+          categoryId,
+          search,
+          limit,
+          offset,
+        }),
       ),
   );
 
   server.tool(
+    "get_expense",
+    "Get expense detail including its latest parsed data (if any)",
+    {
+      expenseId: z.string().describe("Expense ID"),
+    },
+    async ({ expenseId }) =>
+      runTool(async () => {
+        const expense = await expenses.getExpense(db, expenseId, userId);
+        if (!expense) throw new NotFoundError("Expense", expenseId);
+        const parsed = await parse.getLatestParsedExpense(db, expenseId);
+        return { expense, parsed };
+      }),
+  );
+
+  server.tool(
     "create_expense",
-    "Create a manual expense (no receipt)",
+    "Create a manual expense (no image attached, status='active')",
     {
       merchant: z.string().describe("Merchant name"),
       amount: z.number().int().positive().describe("Amount in cents"),
@@ -218,7 +129,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
 
   server.tool(
     "update_expense",
-    "Update an existing expense",
+    "Update an active expense's fields",
     {
       expenseId: z.string().describe("Expense ID"),
       merchant: z.string().optional(),
@@ -230,6 +141,88 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     },
     async ({ expenseId, ...fields }) =>
       runTool(() => expenses.updateExpense(db, expenseId, userId, fields)),
+  );
+
+  server.tool(
+    "update_expense_parsed_fields",
+    "Edit AI-parsed fields on a `needs_review` expense before finalizing",
+    {
+      expenseId: z.string().describe("Expense ID"),
+      merchant: z.string().optional().describe("Merchant name"),
+      total_amount: z.number().int().optional().describe("Total in cents"),
+      subtotal_amount: z.number().int().nullable().optional().describe("Subtotal in cents"),
+      tax_amount: z.number().int().nullable().optional().describe("Tax in cents"),
+      tip_amount: z.number().int().nullable().optional().describe("Tip in cents"),
+      currency: z.string().max(3).optional().describe("Currency code"),
+      purchase_date: z.string().optional().describe("Date YYYY-MM-DD"),
+      suggested_category: z.string().nullable().optional().describe("Category suggestion"),
+    },
+    async ({ expenseId, ...fields }) =>
+      runTool(async () => {
+        const expense = await expenses.getExpense(db, expenseId, userId);
+        if (!expense) throw new NotFoundError("Expense", expenseId);
+
+        const latest = await parse.getLatestParsedExpense(db, expenseId);
+        if (!latest) throw new NotFoundError("ParsedExpense for", expenseId);
+
+        const updated = await parse.updateParsedExpenseFields(db, latest.id, fields);
+        return updated;
+      }),
+  );
+
+  server.tool(
+    "finalize_expense",
+    "Confirm a `needs_review` expense and transition it to `active`",
+    {
+      expenseId: z.string().describe("Expense ID"),
+      merchant: z.string().describe("Merchant name"),
+      amount: z.number().int().positive().describe("Amount in cents"),
+      currency: z.string().max(3).describe("Currency code"),
+      expense_date: z.string().describe("Date YYYY-MM-DD"),
+      category_id: z.string().optional().describe("Category ID"),
+      notes: z.string().optional().describe("Notes"),
+    },
+    async ({ expenseId, merchant, amount, currency, expense_date, category_id, notes }) =>
+      runTool(async () => {
+        const expense = await expenses.getExpense(db, expenseId, userId);
+        if (!expense) throw new NotFoundError("Expense", expenseId);
+        if (expense.status !== "needs_review") {
+          throw new InvalidStateTransitionError(expense.status, "active");
+        }
+        await expenses.finalizeExpense(db, expenseId, {
+          merchant,
+          amount,
+          currency,
+          expense_date,
+          category_id,
+          notes,
+        });
+        return await expenses.getExpense(db, expenseId, userId);
+      }),
+  );
+
+  server.tool(
+    "reprocess_expense",
+    "Trigger fresh AI processing on an expense in `needs_review` or `failed`",
+    {
+      expenseId: z.string().describe("Expense ID"),
+    },
+    async ({ expenseId }) =>
+      runTool(async () => {
+        const expense = await expenses.getExpense(db, expenseId, userId);
+        if (!expense) throw new NotFoundError("Expense", expenseId);
+        if (!["needs_review", "failed"].includes(expense.status)) {
+          throw new InvalidStateTransitionError(expense.status, "processing");
+        }
+        if (!expense.file_key) {
+          throw new Error("Expense has no attached image to reprocess");
+        }
+        const instance = await env.EXPENSE_WORKFLOW.create({
+          params: { expenseId, userId },
+        });
+        await expenses.updateExpenseWorkflowId(db, expenseId, instance.id);
+        return `Reprocessing started. Workflow ID: ${instance.id}`;
+      }),
   );
 
   // --- CATEGORY TOOLS ---
@@ -254,19 +247,19 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
   // --- RESOURCES ---
 
   server.resource(
-    "receipt-detail",
-    "receipt://{id}",
-    { description: "Receipt record with parsed data" },
+    "expense-detail",
+    "expense://{id}",
+    { description: "Expense record with parsed data (if any)" },
     async (uri) => {
-      const receiptId = uri.pathname.replace(/^\/\//, "");
-      const receipt = await receipts.getReceipt(db, receiptId, userId);
-      const parsed = receipt ? await parse.getLatestParsedReceipt(db, receiptId) : null;
+      const expenseId = uri.pathname.replace(/^\/\//, "");
+      const expense = await expenses.getExpense(db, expenseId, userId);
+      const parsed = expense ? await parse.getLatestParsedExpense(db, expenseId) : null;
       return {
         contents: [
           {
             uri: uri.href,
             mimeType: "application/json",
-            text: JSON.stringify({ receipt, parsed }, null, 2),
+            text: JSON.stringify({ expense, parsed }, null, 2),
           },
         ],
       };
@@ -274,16 +267,16 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
   );
 
   server.resource(
-    "receipt-text",
-    "receipt://{id}/text",
-    { description: "Raw OCR text from receipt" },
+    "expense-text",
+    "expense://{id}/text",
+    { description: "Raw OCR text from a receipt-uploaded expense" },
     async (uri) => {
-      const receiptId = uri.pathname.replace(/^\/\//, "").split("/")[0];
-      // Authz check first
-      const receipt = await receipts.getReceipt(db, receiptId, userId);
-      const text = receipt
-        ? (await parse.getLatestParsedReceipt(db, receiptId))?.ocr_text || "No OCR text available"
-        : "Receipt not found";
+      const expenseId = uri.pathname.replace(/^\/\//, "").split("/")[0];
+      const expense = await expenses.getExpense(db, expenseId, userId);
+      const text = expense
+        ? (await parse.getLatestParsedExpense(db, expenseId))?.ocr_text ||
+          "No OCR text available"
+        : "Expense not found";
       return {
         contents: [{ uri: uri.href, mimeType: "text/plain", text }],
       };
@@ -291,37 +284,18 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
   );
 
   server.resource(
-    "expense-detail",
-    "expense://{id}",
-    { description: "Expense record" },
-    async (uri) => {
-      const expenseId = uri.pathname.replace(/^\/\//, "");
-      const expense = await expenses.getExpense(db, expenseId, userId);
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            mimeType: "application/json",
-            text: JSON.stringify(expense, null, 2),
-          },
-        ],
-      };
-    },
-  );
-
-  server.resource(
     "dashboard-summary",
     "summary://dashboard",
-    { description: "Spending summary stats" },
+    { description: "Spending summary plus expense status counts" },
     async (uri) => {
       const summary = await expenses.getExpenseSummary(db, userId);
-      const receiptCounts = await receipts.countReceiptsByStatus(db, userId);
+      const expenseCounts = await expenses.countExpensesByStatus(db, userId);
       return {
         contents: [
           {
             uri: uri.href,
             mimeType: "application/json",
-            text: JSON.stringify({ summary, receiptCounts }, null, 2),
+            text: JSON.stringify({ summary, expenseCounts }, null, 2),
           },
         ],
       };

@@ -1,31 +1,35 @@
 import type { APIRoute } from "astro";
-import { createDb, receipts, expenses, finalizeReceiptSchema } from "@quickspense/domain";
+import { createDb, expenses, finalizeExpenseSchema } from "@quickspense/domain";
 
+/**
+ * Finalize a `needs_review` expense: copy the user-confirmed fields onto the
+ * expense and transition to `active`.
+ */
 export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user!;
     const db = createDb(locals.runtime.env.DB);
-    const receiptId = params.id!;
+    const expenseId = params.id!;
 
-    const receipt = await receipts.getReceipt(db, receiptId, user.id);
-    if (!receipt) {
-      return new Response(JSON.stringify({ error: "Receipt not found" }), {
+    const expense = await expenses.getExpense(db, expenseId, user.id);
+    if (!expense) {
+      return new Response(JSON.stringify({ error: "Expense not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (receipt.status !== "needs_review") {
+    if (expense.status !== "needs_review") {
       return new Response(
         JSON.stringify({
-          error: `Cannot finalize receipt in '${receipt.status}' state`,
+          error: `Cannot finalize expense in '${expense.status}' state`,
         }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const body = await request.json();
-    const parsed = finalizeReceiptSchema.safeParse(body);
+    const parsed = finalizeExpenseSchema.safeParse(body);
     if (!parsed.success) {
       return new Response(
         JSON.stringify({ error: parsed.error.issues[0].message }),
@@ -33,23 +37,19 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       );
     }
 
-    // Create expense
-    const expense = await expenses.createExpenseFromReceipt(db, {
-      receiptId,
-      userId: user.id,
+    await expenses.finalizeExpense(db, expenseId, {
       merchant: parsed.data.merchant,
       amount: parsed.data.amount,
       currency: parsed.data.currency,
-      date: parsed.data.expense_date,
-      categoryId: parsed.data.category_id,
+      expense_date: parsed.data.expense_date,
+      category_id: parsed.data.category_id,
       notes: parsed.data.notes,
     });
 
-    // Mark receipt as finalized
-    await receipts.finalizeReceipt(db, receiptId);
+    const finalized = await expenses.getExpense(db, expenseId, user.id);
 
-    return new Response(JSON.stringify({ expense }), {
-      status: 201,
+    return new Response(JSON.stringify({ expense: finalized }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: unknown) {
