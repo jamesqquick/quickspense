@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { Toaster } from "@/components/ui/toaster";
 
 const { user } = Astro.locals;
 const currentPath = Astro.url.pathname;
@@ -87,6 +88,9 @@ const currentPath = Astro.url.pathname;
     <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-safe">
       <slot />
     </main>
+
+    <Toaster client:load />
+
 
     {/* Mobile FAB: quick access to upload, hidden on desktop and on the upload page itself */}
     {user && !currentPath.startsWith("/receipts/upload") && (

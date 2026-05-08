@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { navigateWithFlashToast } from "@/lib/flashToast";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import {
   InvoiceForm,
@@ -47,7 +49,6 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [devEmailSkipped, setDevEmailSkipped] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
@@ -92,13 +93,13 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
     const updated = (await res.json()) as InvoiceWithLineItems;
     setInvoice(updated);
     setEditing(false);
+    toast.success("Invoice updated");
   };
 
   const performAction = async (
     path: string,
     method: "POST" | "DELETE" = "POST",
   ) => {
-    setActionError(null);
     setActionPending(true);
     try {
       const res = await fetch(path, { method });
@@ -116,14 +117,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           }
           setInvoice(data);
         } else load();
+        if (path.endsWith("/send")) toast.success("Invoice sent");
+        if (path.endsWith("/void")) toast.success("Invoice voided");
       } else if (method === "DELETE") {
-        window.location.href = "/invoices";
+        navigateWithFlashToast("/invoices", "success", "Invoice deleted");
         return;
       } else {
         load();
       }
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Action failed");
+      toast.error(e instanceof Error ? e.message : "Action failed");
     } finally {
       setActionPending(false);
     }
@@ -293,12 +296,6 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         }}
       />
 
-      {actionError && (
-        <p className="text-sm text-red-400" role="alert">
-          {actionError}
-        </p>
-      )}
-
       {devEmailSkipped && (
         <Card className="p-4 bg-yellow-500/10 border-yellow-500/30 space-y-2">
           <p className="text-xs uppercase tracking-wide text-yellow-300">
@@ -315,7 +312,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigator.clipboard?.writeText(devEmailSkipped)}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard?.writeText(devEmailSkipped);
+                  toast.success("Copied to clipboard");
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
             >
               Copy
             </Button>
@@ -340,7 +344,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigator.clipboard?.writeText(payUrl)}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard?.writeText(payUrl);
+                  toast.success("Copied to clipboard");
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
             >
               Copy
             </Button>

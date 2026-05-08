@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import type { Expense, Category } from "@quickspense/domain";
 import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
 import { ExpenseEditModal } from "./ExpenseEditModal";
@@ -113,6 +114,7 @@ export function ExpenseList() {
       throw new Error(data.error || "Failed to create expense");
     }
 
+    toast.success("Expense created");
     setShowForm(false);
     setOffset(0);
     fetchExpenses(0);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -34,12 +34,13 @@ const TOOLS = [
 ];
 
 export function McpConnectionInfo() {
-  const [copied, setCopied] = useState(false);
-
   const copyConfig = async () => {
-    await navigator.clipboard.writeText(MCP_CONFIG);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(MCP_CONFIG);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy");
+    }
   };
 
   return (
@@ -85,7 +86,7 @@ export function McpConnectionInfo() {
             Sample JSON configuration
           </p>
           <Button type="button" variant="outline" size="sm" onClick={copyConfig}>
-            {copied ? "Copied" : "Copy"}
+            Copy
           </Button>
         </div>
         <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-slate-100">

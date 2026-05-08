@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,7 +43,7 @@ export function PublicInvoiceView({
 }) {
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
@@ -52,14 +53,14 @@ export function PublicInvoiceView({
         const res = await fetch(`/api/invoices/public/${token}`);
         if (!res.ok) {
           if (!mounted) return;
-          setError(res.status === 404 ? "Invoice not found" : "Failed to load");
+          setLoadError(res.status === 404 ? "Invoice not found" : "Failed to load");
           return;
         }
         const data = (await res.json()) as PublicInvoice;
         if (!mounted) return;
         setInvoice(data);
       } catch {
-        if (mounted) setError("Failed to load");
+        if (mounted) setLoadError("Failed to load");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -71,7 +72,6 @@ export function PublicInvoiceView({
 
   const startCheckout = async () => {
     setPaying(true);
-    setError(null);
     try {
       const res = await fetch(`/api/invoices/public/${token}/checkout`, {
         method: "POST",
@@ -83,7 +83,7 @@ export function PublicInvoiceView({
       if (!data.url) throw new Error("No checkout URL returned");
       window.location.href = data.url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout failed");
+      toast.error(e instanceof Error ? e.message : "Checkout failed");
       setPaying(false);
     }
   };
@@ -98,10 +98,10 @@ export function PublicInvoiceView({
     );
   }
 
-  if (error || !invoice) {
+  if (loadError || !invoice) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-red-400">{error ?? "Invoice not available"}</p>
+        <p className="text-red-400">{loadError ?? "Invoice not available"}</p>
       </Card>
     );
   }
@@ -235,12 +235,6 @@ export function PublicInvoiceView({
           </div>
         )}
       </Card>
-
-      {error && (
-        <p className="text-sm text-red-400 text-center" role="alert">
-          {error}
-        </p>
-      )}
 
       <div className="flex flex-col items-center gap-3">
         {isPayable && (

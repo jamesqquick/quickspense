@@ -32,7 +32,6 @@ if (Astro.locals.user) {
             class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent"
           />
         </div>
-        <div id="error" class="text-red-400 text-sm hidden"></div>
         <button
           type="submit"
           class="w-full bg-accent-500 text-white py-2.5 px-4 rounded-xl hover:bg-accent-600 font-semibold transition-colors duration-200 cursor-pointer"
@@ -47,12 +46,13 @@ if (Astro.locals.user) {
   </div>
 
   <script>
+    import { showToast } from "@/lib/qsToast";
+    import { withFlashToast } from "@/lib/flashToast";
+
     const form = document.getElementById("register-form") as HTMLFormElement;
-    const errorEl = document.getElementById("error") as HTMLDivElement;
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      errorEl.classList.add("hidden");
 
       const email = (form.querySelector("#email") as HTMLInputElement).value;
       const password = (form.querySelector("#password") as HTMLInputElement).value;
@@ -64,11 +64,10 @@ if (Astro.locals.user) {
       });
 
       if (res.ok) {
-        window.location.href = "/dashboard";
+        window.location.href = withFlashToast("/dashboard", "success", "Account created");
       } else {
         const data = await res.json();
-        errorEl.textContent = data.error || "Registration failed";
-        errorEl.classList.remove("hidden");
+        showToast("error", data.error || "Registration failed");
       }
     });
   </script>

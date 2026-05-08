@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import type { Expense, Category } from "@quickspense/domain";
 import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
 import {
@@ -55,6 +56,7 @@ export function ExpenseEditModal({
     }
 
     const updated: Expense = await res.json();
+    toast.success("Expense updated");
     onSave(updated);
   };
 
