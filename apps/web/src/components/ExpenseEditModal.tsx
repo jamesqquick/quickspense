@@ -15,7 +15,8 @@ type ExpenseEditModalProps = {
   onClose: () => void;
 };
 
-function formatCents(cents: number): string {
+function formatCents(cents: number | null): string {
+  if (cents === null) return "";
   return (cents / 100).toFixed(2);
 }
 
@@ -26,10 +27,10 @@ export function ExpenseEditModal({
   onClose,
 }: ExpenseEditModalProps) {
   const initialValues: ExpenseFormValues = {
-    merchant: expense.merchant,
+    merchant: expense.merchant ?? "",
     amount: formatCents(expense.amount),
     currency: expense.currency,
-    expense_date: expense.expense_date,
+    expense_date: expense.expense_date ?? "",
     category_id: expense.category_id ?? "",
     notes: expense.notes ?? "",
   };

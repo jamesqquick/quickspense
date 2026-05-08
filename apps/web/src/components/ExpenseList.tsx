@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import type { Expense, Category } from "@quickspense/domain";
-import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
+import type { Expense, ExpenseStatus, Category } from "@quickspense/domain";
 import { ExpenseEditModal } from "./ExpenseEditModal";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
@@ -9,33 +8,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
-import { Pencil, Trash2, Search, X } from "lucide-react";
+import { Pencil, Trash2, Search, X, Image as ImageIcon } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-function formatCents(cents: number): string {
+type BadgeVariant = "muted" | "warning" | "info" | "success" | "destructive";
+
+const STATUS_BADGE_VARIANT: Record<ExpenseStatus, BadgeVariant> = {
+  active: "success",
+  processing: "warning",
+  needs_review: "info",
+  failed: "destructive",
+};
+
+const STATUS_LABELS: Record<ExpenseStatus, string> = {
+  active: "Active",
+  processing: "Processing",
+  needs_review: "Needs Review",
+  failed: "Failed",
+};
+
+const STATUS_TABS: Array<{ value: "" | ExpenseStatus; label: string }> = [
+  { value: "active", label: "Active" },
+  { value: "needs_review", label: "Needs Review" },
+  { value: "processing", label: "Processing" },
+  { value: "failed", label: "Failed" },
+  { value: "", label: "All" },
+];
+
+function formatCents(cents: number | null): string {
+  if (cents === null) return "—";
   return (cents / 100).toFixed(2);
 }
 
-export function ExpenseList() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+type Props = {
+  /** Initial status tab. Defaults to "active". */
+  initialStatus?: "" | ExpenseStatus;
+};
+
+export function ExpenseList({ initialStatus = "active" }: Props) {
+  const [items, setItems] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [status, setStatus] = useState<"" | ExpenseStatus>(initialStatus);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [categoryId, setCategoryId] = useState("");
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
+
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
-  // Debounce search input
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -48,6 +79,7 @@ export function ExpenseList() {
   const fetchExpenses = async (requestedOffset = offset) => {
     setLoading(true);
     const params = new URLSearchParams();
+    if (status) params.set("status", status);
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (categoryId) params.set("categoryId", categoryId);
@@ -59,7 +91,7 @@ export function ExpenseList() {
       const res = await fetch(`/api/expenses?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setExpenses(data.items);
+        setItems(data.items);
         setTotal(data.total);
       }
     } catch {
@@ -82,54 +114,32 @@ export function ExpenseList() {
     fetchCategories();
   }, []);
 
-  // Reset to first page when filters change
+  // On filter change, jump back to page 0
   useEffect(() => {
     setOffset(0);
     fetchExpenses(0);
-  }, [startDate, endDate, categoryId, debouncedSearch]);
+  }, [status, startDate, endDate, categoryId, debouncedSearch]);
 
-  // Fetch when page changes (but not on filter change -- handled above)
   useEffect(() => {
     if (offset !== 0) fetchExpenses(offset);
   }, [offset]);
 
-  const handleCreate = async (values: ExpenseFormValues) => {
-    const amountCents = Math.round(parseFloat(values.amount) * 100);
-
-    const res = await fetch("/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        merchant: values.merchant,
-        amount: amountCents,
-        currency: values.currency || "USD",
-        expense_date: values.expense_date,
-        category_id: values.category_id || undefined,
-        notes: values.notes || undefined,
-      }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Failed to create expense");
-    }
-
-    toast.success("Expense created");
-    setShowForm(false);
-    setOffset(0);
-    fetchExpenses(0);
-  };
+  // Sync `?status=` in URL so the dashboard cards can deep-link to a tab.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (status) url.searchParams.set("status", status);
+    else url.searchParams.delete("status");
+    window.history.replaceState({}, "", url);
+  }, [status]);
 
   const handleEditSave = (updated: Expense) => {
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === updated.id ? updated : e)),
-    );
+    setItems((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
     setEditingExpense(null);
   };
 
   const handleDeleteConfirm = () => {
     if (deletingExpense) {
-      setExpenses((prev) => prev.filter((e) => e.id !== deletingExpense.id));
+      setItems((prev) => prev.filter((e) => e.id !== deletingExpense.id));
     }
     setDeletingExpense(null);
   };
@@ -139,8 +149,35 @@ export function ExpenseList() {
     return categories.find((c) => c.id === id)?.name || "Unknown";
   };
 
+  const exportHref = (() => {
+    const p = new URLSearchParams();
+    if (startDate) p.set("startDate", startDate);
+    if (endDate) p.set("endDate", endDate);
+    if (categoryId) p.set("categoryId", categoryId);
+    if (debouncedSearch) p.set("search", debouncedSearch);
+    const qs = p.toString();
+    return `/api/expenses/export${qs ? `?${qs}` : ""}`;
+  })();
+
   return (
     <div className="space-y-6">
+      {/* Status tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value || "all"}
+            onClick={() => setStatus(tab.value)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 cursor-pointer ${
+              status === tab.value
+                ? "bg-primary-500 text-white"
+                : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Input
@@ -198,38 +235,16 @@ export function ExpenseList() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "Add Expense"}
+        <Button asChild>
+          <a href="/expenses/new">+ New Expense</a>
         </Button>
         <Button variant="outline" asChild>
-          <a
-            href={(() => {
-              const p = new URLSearchParams();
-              if (startDate) p.set("startDate", startDate);
-              if (endDate) p.set("endDate", endDate);
-              if (categoryId) p.set("categoryId", categoryId);
-              if (debouncedSearch) p.set("search", debouncedSearch);
-              const qs = p.toString();
-              return `/api/expenses/export${qs ? `?${qs}` : ""}`;
-            })()}
-          >
-            Export CSV
-          </a>
+          <a href="/expenses/upload">Upload Receipts</a>
+        </Button>
+        <Button variant="outline" asChild>
+          <a href={exportHref}>Export CSV</a>
         </Button>
       </div>
-
-      {/* Manual expense form */}
-      {showForm && (
-        <Card className="p-6">
-          <ExpenseForm
-            categories={categories}
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
-            submitLabel="Create Expense"
-            submittingLabel="Creating..."
-          />
-        </Card>
-      )}
 
       {/* Expense list */}
       {loading ? (
@@ -247,54 +262,87 @@ export function ExpenseList() {
             </Card>
           ))}
         </div>
-      ) : expenses.length === 0 ? (
+      ) : items.length === 0 ? (
         <p className="text-slate-400 text-center py-12">No expenses found.</p>
       ) : (
         <div className="space-y-2">
-          {expenses.map((exp) => (
-            <Card
-              key={exp.id}
-              className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-2"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-white truncate">{exp.merchant}</p>
-                <p className="text-sm text-slate-500">
-                  {exp.expense_date} &middot; {getCategoryName(exp.category_id)}
-                </p>
-                {exp.notes && (
-                  <p className="text-xs text-slate-500 mt-1 truncate">{exp.notes}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-semibold text-white">
-                    ${formatCents(exp.amount)}
-                  </p>
-                  <p className="text-xs text-slate-500">{exp.currency}</p>
+          {items.map((exp) => {
+            const isReadOnly = exp.status !== "active";
+            const subtitle =
+              exp.status === "active"
+                ? `${exp.expense_date ?? ""} · ${getCategoryName(exp.category_id)}`
+                : exp.file_name ?? "";
+
+            return (
+              <Card
+                key={exp.id}
+                className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-white truncate">
+                      {exp.merchant || (
+                        <span className="text-slate-500">Pending parse...</span>
+                      )}
+                    </p>
+                    {exp.status !== "active" && (
+                      <Badge variant={STATUS_BADGE_VARIANT[exp.status]}>
+                        {STATUS_LABELS[exp.status]}
+                      </Badge>
+                    )}
+                    {exp.file_key && (
+                      <ImageIcon
+                        className="size-3.5 text-slate-500"
+                        aria-label="Has attached image"
+                      />
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-500">{subtitle}</p>
+                  {exp.notes && (
+                    <p className="text-xs text-slate-500 mt-1 truncate">
+                      {exp.notes}
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setEditingExpense(exp)}
-                    title="Edit expense"
-                    className="size-8"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeletingExpense(exp)}
-                    title="Delete expense"
-                    className="size-8 hover:text-red-400"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="font-semibold text-white">
+                      ${formatCents(exp.amount)}
+                    </p>
+                    <p className="text-xs text-slate-500">{exp.currency}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {isReadOnly ? (
+                      <Button asChild variant="outline" size="sm">
+                        <a href={`/expenses/${exp.id}`}>Open</a>
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingExpense(exp)}
+                          title="Edit expense"
+                          className="size-8"
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeletingExpense(exp)}
+                          title="Delete expense"
+                          className="size-8 hover:text-red-400"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -305,7 +353,6 @@ export function ExpenseList() {
         onPageChange={setOffset}
       />
 
-      {/* Edit modal */}
       {editingExpense && (
         <ExpenseEditModal
           expense={editingExpense}
@@ -315,7 +362,6 @@ export function ExpenseList() {
         />
       )}
 
-      {/* Delete confirmation */}
       {deletingExpense && (
         <ExpenseDeleteConfirm
           expense={deletingExpense}

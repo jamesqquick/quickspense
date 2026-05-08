@@ -1,0 +1,26 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { ManualExpenseForm } from "../../components/ManualExpenseForm";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <div class="max-w-2xl mx-auto">
+    <div class="mb-4">
+      <a
+        href="/expenses"
+        class="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200"
+        >&larr; Back to Expenses</a
+      >
+    </div>
+    <h1 class="text-2xl font-bold text-white mb-2">New Expense</h1>
+    <p class="text-sm text-slate-400 mb-6">
+      Enter the details manually. You can optionally attach a receipt image
+      for your records.
+    </p>
+    <ManualExpenseForm client:load />
+  </div>
+</Layout>

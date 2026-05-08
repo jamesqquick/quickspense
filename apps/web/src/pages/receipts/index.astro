@@ -1,21 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import { ReceiptList } from "../../components/ReceiptList";
-
-if (!Astro.locals.user) {
-  return Astro.redirect("/login");
-}
+// Legacy /receipts route. Receipts and expenses are now unified — redirect
+// to the expenses list.
+return Astro.redirect("/expenses?status=needs_review", 301);
 ---
-
-<Layout>
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-white">Receipts</h1>
-    <a
-      href="/receipts/upload"
-      class="bg-accent-500 text-white px-4 py-2 rounded-xl hover:bg-accent-600 text-sm font-medium transition-colors duration-200 cursor-pointer"
-    >
-      Upload Receipt
-    </a>
-  </div>
-  <ReceiptList client:load />
-</Layout>

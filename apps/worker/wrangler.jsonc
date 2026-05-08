@@ -22,23 +22,33 @@
   },
   "workflows": [
     {
-      "name": "receipt-processing",
-      "binding": "RECEIPT_WORKFLOW",
-      "class_name": "ReceiptProcessingWorkflow"
+      "name": "expense-processing",
+      "binding": "EXPENSE_WORKFLOW",
+      "class_name": "ExpenseProcessingWorkflow"
     }
   ],
   "durable_objects": {
     "bindings": [
       {
-        "name": "RECEIPT_STATUS_DO",
-        "class_name": "ReceiptStatusDO"
+        "name": "EXPENSE_STATUS_DO",
+        "class_name": "ExpenseStatusDO"
       }
     ]
   },
+  // The DO `ReceiptStatusDO` was renamed to `ExpenseStatusDO` when the
+  // receipts and expenses concepts merged. The v1 migration is preserved
+  // for fresh deploys; v2 renames the existing class so prod DO state
+  // (per-receipt WebSocket subscribers) carries over by id.
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["ReceiptStatusDO"]
+    },
+    {
+      "tag": "v2",
+      "renamed_classes": [
+        { "from": "ReceiptStatusDO", "to": "ExpenseStatusDO" }
+      ]
     }
   ]
 }

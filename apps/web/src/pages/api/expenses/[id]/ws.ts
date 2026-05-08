@@ -1,9 +1,14 @@
 import type { APIRoute } from "astro";
 
+/**
+ * WebSocket upgrade for live expense workflow status. Forwards via Service
+ * Binding to the worker's `/ws/expense/:id` route, which routes to the
+ * `EXPENSE_STATUS_DO` Durable Object.
+ */
 export const GET: APIRoute = async (context) => {
   const { id } = context.params;
   if (!id) {
-    return new Response("Missing receipt ID", { status: 400 });
+    return new Response("Missing expense ID", { status: 400 });
   }
 
   const upgradeHeader = context.request.headers.get("Upgrade");
@@ -12,8 +17,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   const worker = context.locals.runtime.env.WORKER;
-  const workerUrl = `https://worker/ws/receipt/${id}`;
+  const workerUrl = `https://worker/ws/expense/${id}`;
 
-  // Forward the WebSocket upgrade request to the worker via Service Binding
   return worker.fetch(workerUrl, context.request);
 };

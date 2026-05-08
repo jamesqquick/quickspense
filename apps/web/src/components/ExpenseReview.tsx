@@ -1,15 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import type { Receipt, ParsedReceipt, Category } from "@quickspense/domain";
+import type { Expense, ExpenseStatus, ParsedExpense, Category } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
-  receiptId: string;
+  expenseId: string;
 };
 
 type StatusUpdate = {
@@ -32,33 +38,57 @@ function parseCents(value: string): number | null {
 
 type BadgeVariant = "muted" | "warning" | "info" | "success" | "destructive";
 
-const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
-  uploaded: "muted",
+const STATUS_BADGE_VARIANT: Record<ExpenseStatus, BadgeVariant> = {
+  active: "success",
   processing: "warning",
   needs_review: "info",
-  finalized: "success",
   failed: "destructive",
+};
+
+const STATUS_LABEL: Record<ExpenseStatus, string> = {
+  active: "active",
+  processing: "processing",
+  needs_review: "needs review",
+  failed: "failed",
 };
 
 const STEP_LABELS: Record<string, string> = {
   "mark-processing": "Starting...",
-  "ocr": "Reading receipt text...",
-  "extract": "Extracting receipt data...",
-  "normalize": "Normalizing data...",
+  ocr: "Reading receipt text...",
+  extract: "Extracting receipt data...",
+  normalize: "Normalizing data...",
   "persist-results": "Saving results...",
-  "complete": "Processing complete!",
-  "error": "Processing failed",
+  complete: "Processing complete!",
+  error: "Processing failed",
 };
 
-export function ReceiptReview({ receiptId }: Props) {
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
+const PROGRESS_STEPS = [
+  "mark-processing",
+  "ocr",
+  "extract",
+  "normalize",
+  "persist-results",
+  "complete",
+];
+
+/**
+ * Unified expense detail view. Behavior depends on `expense.status`:
+ *   - `processing`: live progress UI (WebSocket + polling fallback), read-only.
+ *   - `needs_review`: editable parsed fields + Finalize button.
+ *   - `active`: editable expense fields, image preview if attached.
+ *   - `failed`: error message + Reprocess button + manual entry fallback.
+ */
+export function ExpenseReview({ expenseId }: Props) {
+  const [expense, setExpense] = useState<Expense | null>(null);
+  const [parsed, setParsed] = useState<ParsedExpense | null>(null);
   const [loading, setLoading] = useState(true);
-  const [finalizing, setFinalizing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const [progressDetail, setProgressDetail] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const [usingWebSocket, setUsingWebSocket] = useState(false);
+  const [pollGaveUp, setPollGaveUp] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Editable fields
   const [merchant, setMerchant] = useState("");
@@ -69,48 +99,59 @@ export function ReceiptReview({ receiptId }: Props) {
   const [currency, setCurrency] = useState("USD");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
+  const [notes, setNotes] = useState("");
   const [categoryList, setCategoryList] = useState<Category[]>([]);
+
+  const populateFromExpense = useCallback(
+    (exp: Expense, p: ParsedExpense | null) => {
+      // For active expenses, the user-confirmed values live on the expense.
+      // For needs_review, parsed_expenses holds the AI draft. For processing/
+      // failed, both may be sparse — we just show whatever we have.
+      const isActive = exp.status === "active";
+      setMerchant((isActive ? exp.merchant : p?.merchant) ?? "");
+      setTotal(formatCents(isActive ? exp.amount : p?.total_amount ?? null));
+      setSubtotal(formatCents(p?.subtotal_amount ?? null));
+      setTax(formatCents(p?.tax_amount ?? null));
+      setTip(formatCents(p?.tip_amount ?? null));
+      setCurrency(exp.currency || p?.currency || "USD");
+      setDate((isActive ? exp.expense_date : p?.purchase_date) ?? "");
+      setCategory(exp.category_id ?? "");
+      setNotes(exp.notes ?? "");
+    },
+    [],
+  );
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/receipts/${receiptId}`);
+      const res = await fetch(`/api/expenses/${expenseId}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setReceipt(data.receipt);
+      setExpense(data.expense);
       setParsed(data.parsed);
-
-      if (data.parsed) {
-        setMerchant(data.parsed.merchant || "");
-        setTotal(formatCents(data.parsed.total_amount));
-        setSubtotal(formatCents(data.parsed.subtotal_amount));
-        setTax(formatCents(data.parsed.tax_amount));
-        setTip(formatCents(data.parsed.tip_amount));
-        setCurrency(data.parsed.currency || "USD");
-        setDate(data.parsed.purchase_date || "");
-      }
+      populateFromExpense(data.expense, data.parsed);
     } catch {
-      toast.error("Failed to load receipt");
+      toast.error("Failed to load expense");
     } finally {
       setLoading(false);
     }
-  }, [receiptId]);
+  }, [expenseId, populateFromExpense]);
 
   useEffect(() => {
-    // Fetch categories first so we can resolve suggested_category name -> id
+    // Categories first so we can map suggested_category name -> id
     fetch("/api/categories")
       .then((res) => (res.ok ? res.json() : []))
       .then((data: Category[]) => {
         setCategoryList(data);
-        // Now fetch receipt data
         fetchData().then(() => {
-          // After parsed data is loaded, try to resolve suggested_category to an id
           setParsed((prev) => {
             if (prev?.suggested_category) {
               const match = data.find(
-                (c) => c.name.toLowerCase() === prev.suggested_category?.toLowerCase(),
+                (c) =>
+                  c.name.toLowerCase() ===
+                  prev.suggested_category?.toLowerCase(),
               );
-              if (match) setCategory(match.id);
+              if (match) setCategory((cur) => cur || match.id);
             }
             return prev;
           });
@@ -119,11 +160,11 @@ export function ReceiptReview({ receiptId }: Props) {
       .catch(() => {
         fetchData();
       });
-  }, [receiptId, fetchData]);
+  }, [expenseId, fetchData]);
 
-  // WebSocket connection for real-time status updates
+  // WebSocket for real-time workflow updates while processing
   useEffect(() => {
-    if (receipt?.status !== "processing") return;
+    if (expense?.status !== "processing") return;
 
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -131,9 +172,8 @@ export function ReceiptReview({ receiptId }: Props) {
 
     const connect = () => {
       if (closed) return;
-
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/api/receipts/${receiptId}/ws`;
+      const wsUrl = `${protocol}//${window.location.host}/api/expenses/${expenseId}/ws`;
 
       try {
         ws = new WebSocket(wsUrl);
@@ -148,32 +188,27 @@ export function ReceiptReview({ receiptId }: Props) {
             const update: StatusUpdate = JSON.parse(event.data);
             setProgressDetail(update.detail);
             setCurrentStep(update.step);
-
-            // Terminal states: refetch full data
             if (update.status === "needs_review" || update.status === "failed") {
               fetchData();
             }
           } catch {
-            // Ignore non-JSON messages (e.g. "pong")
+            // Ignore non-JSON messages
           }
         };
 
         ws.onclose = () => {
           wsRef.current = null;
           setUsingWebSocket(false);
-          // Reconnect after a short delay unless we've been cleaned up
           if (!closed) {
             reconnectTimer = setTimeout(connect, 3000);
           }
         };
 
         ws.onerror = () => {
-          // onerror is always followed by onclose, so reconnect happens there
           wsRef.current = null;
           setUsingWebSocket(false);
         };
       } catch {
-        // WebSocket constructor can throw if URL is invalid
         setUsingWebSocket(false);
       }
     };
@@ -191,17 +226,14 @@ export function ReceiptReview({ receiptId }: Props) {
       setProgressDetail(null);
       setCurrentStep(null);
     };
-  }, [receipt?.status, receiptId, fetchData]);
+  }, [expense?.status, expenseId, fetchData]);
 
-  // Fallback polling when WebSocket is not connected (exponential backoff)
-  const [pollGaveUp, setPollGaveUp] = useState(false);
+  // Polling fallback when WebSocket is unavailable
   useEffect(() => {
-    if (receipt?.status !== "processing") {
+    if (expense?.status !== "processing") {
       setPollGaveUp(false);
       return;
     }
-
-    // Don't poll if WebSocket is active
     if (usingWebSocket) return;
 
     const delays = [3000, 5000, 10000, 30000];
@@ -231,17 +263,16 @@ export function ReceiptReview({ receiptId }: Props) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [receipt?.status, usingWebSocket, fetchData]);
+  }, [expense?.status, usingWebSocket, fetchData]);
 
   const handleFinalize = async () => {
     if (!merchant || !total || !date) {
       toast.error("Merchant, amount, and date are required to finalize");
       return;
     }
-
-    setFinalizing(true);
+    setSaving(true);
     try {
-      const res = await fetch(`/api/receipts/${receiptId}/finalize`, {
+      const res = await fetch(`/api/expenses/${expenseId}/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -250,11 +281,11 @@ export function ReceiptReview({ receiptId }: Props) {
           currency,
           expense_date: date,
           category_id: category || undefined,
-          notes: undefined,
+          notes: notes || undefined,
         }),
       });
       if (res.ok) {
-        toast.success("Receipt finalized. Expense created.");
+        toast.success("Expense finalized.");
         await fetchData();
       } else {
         const data = await res.json();
@@ -263,7 +294,60 @@ export function ReceiptReview({ receiptId }: Props) {
     } catch {
       toast.error("Finalize failed");
     } finally {
-      setFinalizing(false);
+      setSaving(false);
+    }
+  };
+
+  const handleSaveActive = async () => {
+    if (!merchant || !total || !date) {
+      toast.error("Merchant, amount, and date are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          merchant,
+          amount: parseCents(total),
+          currency,
+          expense_date: date,
+          category_id: category || null,
+          notes: notes || null,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Expense saved");
+        await fetchData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Save failed");
+      }
+    } catch {
+      toast.error("Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReprocess = async () => {
+    setReprocessing(true);
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/reprocess`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        toast.success("Reprocessing started");
+        await fetchData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Reprocess failed");
+      }
+    } catch {
+      toast.error("Reprocess failed");
+    } finally {
+      setReprocessing(false);
     }
   };
 
@@ -286,18 +370,6 @@ export function ReceiptReview({ receiptId }: Props) {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i}>
-                  <Skeleton className="h-4 w-20 mb-2" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
-            </div>
-            <div>
-              <Skeleton className="h-4 w-32 mb-2" />
-              <Skeleton className="h-10 w-full" />
-            </div>
           </div>
           <Skeleton className="h-9 w-full sm:w-24" />
         </div>
@@ -305,73 +377,79 @@ export function ReceiptReview({ receiptId }: Props) {
     );
   }
 
-  if (!receipt) {
-    return <p className="text-red-400">Receipt not found</p>;
+  if (!expense) {
+    return <p className="text-red-400">Expense not found</p>;
   }
 
-  const isEditable = receipt.status === "needs_review";
-  const canFinalize = receipt.status === "needs_review";
+  const hasImage = !!expense.file_key;
+  const isProcessing = expense.status === "processing";
+  const isNeedsReview = expense.status === "needs_review";
+  const isActive = expense.status === "active";
+  const isFailed = expense.status === "failed";
+  const isEditable = isNeedsReview || isActive;
 
-  const completedSteps = ["mark-processing", "ocr", "extract", "normalize", "persist-results", "complete"];
-  const currentStepIndex = currentStep ? completedSteps.indexOf(currentStep) : -1;
+  const currentStepIndex = currentStep
+    ? PROGRESS_STEPS.indexOf(currentStep)
+    : -1;
   const progressPercent = currentStep
-    ? Math.min(100, Math.round(((currentStepIndex + 1) / completedSteps.length) * 100))
+    ? Math.min(100, Math.round(((currentStepIndex + 1) / PROGRESS_STEPS.length) * 100))
     : 0;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Left: Receipt image */}
-      <div>
-        <img
-          src={`/api/receipts/${receiptId}/image`}
-          alt="Receipt"
-          className="w-full rounded-2xl border border-white/10"
-        />
-      </div>
+    <div className={`grid grid-cols-1 ${hasImage ? "lg:grid-cols-2" : ""} gap-8`}>
+      {/* Image (if attached) */}
+      {hasImage && (
+        <div>
+          <img
+            src={`/api/expenses/${expenseId}/image`}
+            alt="Receipt"
+            className="w-full rounded-2xl border border-white/10"
+          />
+        </div>
+      )}
 
-      {/* Right: Parsed data + actions */}
       <div className="space-y-6">
-        {/* Status badge */}
-        <div className="flex items-center gap-3">
-          <Badge variant={STATUS_BADGE_VARIANT[receipt.status] ?? "muted"} className="px-3 py-1 text-sm">
-            {receipt.status.replace("_", " ")}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge
+            variant={STATUS_BADGE_VARIANT[expense.status]}
+            className="px-3 py-1 text-sm"
+          >
+            {STATUS_LABEL[expense.status]}
           </Badge>
-          {receipt.error_message && (
-            <span className="text-sm text-red-400">{receipt.error_message}</span>
+          {expense.error_message && (
+            <span className="text-sm text-red-400">{expense.error_message}</span>
           )}
         </div>
 
-        {/* Confidence score */}
-        {parsed?.confidence_score !== null && parsed?.confidence_score !== undefined && (
-          <div>
-            <p className="text-sm text-slate-400 mb-1">
-              AI Confidence: {Math.round(parsed.confidence_score * 100)}%
-            </p>
-            <div className="w-full bg-white/10 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  parsed.confidence_score > 0.7
-                    ? "bg-green-400"
-                    : parsed.confidence_score > 0.4
-                      ? "bg-yellow-400"
-                      : "bg-red-400"
-                }`}
-                style={{ width: `${parsed.confidence_score * 100}%` }}
-              />
+        {parsed?.confidence_score !== null &&
+          parsed?.confidence_score !== undefined && (
+            <div>
+              <p className="text-sm text-slate-400 mb-1">
+                AI Confidence: {Math.round(parsed.confidence_score * 100)}%
+              </p>
+              <div className="w-full bg-white/10 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    parsed.confidence_score > 0.7
+                      ? "bg-green-400"
+                      : parsed.confidence_score > 0.4
+                        ? "bg-yellow-400"
+                        : "bg-red-400"
+                  }`}
+                  style={{ width: `${parsed.confidence_score * 100}%` }}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Editable fields */}
-        {receipt.status === "processing" ? (
+        {isProcessing ? (
           <div className="text-center py-8">
             {pollGaveUp && !usingWebSocket ? (
               <>
-                <p className="text-slate-300 font-medium mb-2">
-                  Still processing...
-                </p>
+                <p className="text-slate-300 font-medium mb-2">Still processing...</p>
                 <p className="text-sm text-slate-500 mb-4">
-                  This is taking longer than expected. Refresh the page later to check status.
+                  This is taking longer than expected. Refresh the page later
+                  to check status.
                 </p>
                 <Button variant="link" onClick={fetchData}>
                   Check now
@@ -392,7 +470,7 @@ export function ReceiptReview({ receiptId }: Props) {
                       />
                     </div>
                     <div className="flex flex-wrap justify-center gap-1.5">
-                      {completedSteps.slice(0, -1).map((step, i) => (
+                      {PROGRESS_STEPS.slice(0, -1).map((step, i) => (
                         <span
                           key={step}
                           className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
@@ -431,33 +509,34 @@ export function ReceiptReview({ receiptId }: Props) {
                   disabled={!isEditable}
                 />
               </div>
-              <div>
-                <Label>Subtotal ($)</Label>
-                <Input
-                  type="text"
-                  value={subtotal}
-                  onChange={(e) => setSubtotal(e.target.value)}
-                  disabled={!isEditable}
-                />
-              </div>
-              <div>
-                <Label>Tax ($)</Label>
-                <Input
-                  type="text"
-                  value={tax}
-                  onChange={(e) => setTax(e.target.value)}
-                  disabled={!isEditable}
-                />
-              </div>
-              <div>
-                <Label>Tip ($)</Label>
-                <Input
-                  type="text"
-                  value={tip}
-                  onChange={(e) => setTip(e.target.value)}
-                  disabled={!isEditable}
-                />
-              </div>
+              {isNeedsReview && (
+                <>
+                  <div>
+                    <Label>Subtotal ($)</Label>
+                    <Input
+                      type="text"
+                      value={subtotal}
+                      onChange={(e) => setSubtotal(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Tax ($)</Label>
+                    <Input
+                      type="text"
+                      value={tax}
+                      onChange={(e) => setTax(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Tip ($)</Label>
+                    <Input
+                      type="text"
+                      value={tip}
+                      onChange={(e) => setTip(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -484,7 +563,9 @@ export function ReceiptReview({ receiptId }: Props) {
               <Label>Category</Label>
               <Select
                 value={category || "__none__"}
-                onValueChange={(v) => setCategory(v === "__none__" ? "" : v)}
+                onValueChange={(v) =>
+                  setCategory(v === "__none__" ? "" : v)
+                }
                 disabled={!isEditable}
               >
                 <SelectTrigger>
@@ -500,22 +581,50 @@ export function ReceiptReview({ receiptId }: Props) {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Notes</Label>
+              <Input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={!isEditable}
+              />
+            </div>
           </div>
         )}
 
         {/* Actions */}
-        {canFinalize && (
-          <div>
+        <div className="flex flex-wrap gap-3">
+          {isNeedsReview && (
             <Button
               variant="success"
               onClick={handleFinalize}
-              disabled={finalizing}
+              disabled={saving}
               className="w-full sm:w-auto"
             >
-              {finalizing ? "Finalizing..." : "Finalize"}
+              {saving ? "Finalizing..." : "Finalize"}
             </Button>
-          </div>
-        )}
+          )}
+          {isActive && (
+            <Button
+              variant="success"
+              onClick={handleSaveActive}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          )}
+          {(isFailed || isNeedsReview) && hasImage && (
+            <Button
+              variant="outline"
+              onClick={handleReprocess}
+              disabled={reprocessing}
+            >
+              {reprocessing ? "Starting..." : "Reprocess"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
