@@ -1,6 +1,14 @@
 # Local development secrets. Copy to .dev.vars and fill in.
 # .dev.vars is gitignored. Never commit real secrets.
 
+# URL of the locally-running background worker (apps/worker).
+# Required for receipt uploads, reprocessing, and any flow that triggers a
+# Workflow. The web app uses this URL to reach the worker via plain HTTP
+# instead of the Service Binding, because Service Bindings don't reliably
+# cross separate `wrangler dev` / `astro dev` processes (they return 503).
+# Run `pnpm dev:worker` in a separate terminal; it defaults to port 8787.
+WORKER_DEV_URL=http://localhost:8787
+
 # Stripe — required for invoicing.
 # Use a TEST-MODE key only. The app refuses to start with `sk_live_...`
 # outside production (see lib/stripe.ts). Get from:
