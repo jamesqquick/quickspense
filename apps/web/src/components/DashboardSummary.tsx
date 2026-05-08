@@ -190,9 +190,10 @@ export function DashboardSummary() {
             <Card>
               <div className="divide-y divide-white/5">
                 {recentExpenses.map((exp) => (
-                  <div
+                  <a
                     key={exp.id}
-                    className="flex items-center justify-between p-4"
+                    href={`/expenses/${exp.id}`}
+                    className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors duration-200 cursor-pointer"
                   >
                     <div>
                       <p className="font-medium text-white text-sm">
@@ -205,7 +206,7 @@ export function DashboardSummary() {
                     <span className="font-medium text-white text-sm">
                       ${formatCents(exp.amount)}
                     </span>
-                  </div>
+                  </a>
                 ))}
               </div>
             </Card>
