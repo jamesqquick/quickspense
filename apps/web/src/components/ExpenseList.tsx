@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { toast } from "sonner";
 import type { Expense, ExpenseStatus, Category } from "@quickspense/domain";
-import { ExpenseEditModal } from "./ExpenseEditModal";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
-import { Pencil, Trash2, Search, X, Image as ImageIcon } from "lucide-react";
+import { Trash2, Search, X, Image as ImageIcon, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -64,7 +62,6 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -131,11 +128,6 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
     else url.searchParams.delete("status");
     window.history.replaceState({}, "", url);
   }, [status]);
-
-  const handleEditSave = (updated: Expense) => {
-    setItems((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-    setEditingExpense(null);
-  };
 
   const handleDeleteConfirm = () => {
     if (deletingExpense) {
@@ -267,7 +259,6 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
       ) : (
         <div className="space-y-2">
           {items.map((exp) => {
-            const isReadOnly = exp.status !== "active";
             const subtitle =
               exp.status === "active"
                 ? `${exp.expense_date ?? ""} · ${getCategoryName(exp.category_id)}`
@@ -276,69 +267,65 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
             return (
               <Card
                 key={exp.id}
-                className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-2"
+                className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-2 hover:bg-white/[0.08] transition-colors duration-200"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-white truncate">
-                      {exp.merchant || (
-                        <span className="text-slate-500">Pending parse...</span>
+                <a
+                  href={`/expenses/${exp.id}`}
+                  className="flex items-center justify-between gap-4 flex-1 min-w-0 cursor-pointer"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-white truncate">
+                        {exp.merchant || (
+                          <span className="text-slate-500">Pending parse...</span>
+                        )}
+                      </p>
+                      {exp.status !== "active" && (
+                        <Badge variant={STATUS_BADGE_VARIANT[exp.status]}>
+                          {STATUS_LABELS[exp.status]}
+                        </Badge>
                       )}
-                    </p>
-                    {exp.status !== "active" && (
-                      <Badge variant={STATUS_BADGE_VARIANT[exp.status]}>
-                        {STATUS_LABELS[exp.status]}
-                      </Badge>
-                    )}
-                    {exp.file_key && (
-                      <ImageIcon
-                        className="size-3.5 text-slate-500"
-                        aria-label="Has attached image"
-                      />
+                      {exp.file_key && (
+                        <ImageIcon
+                          className="size-3.5 text-slate-500"
+                          aria-label="Has attached image"
+                        />
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500">{subtitle}</p>
+                    {exp.notes && (
+                      <p className="text-xs text-slate-500 mt-1 truncate">
+                        {exp.notes}
+                      </p>
                     )}
                   </div>
-                  <p className="text-sm text-slate-500">{subtitle}</p>
-                  {exp.notes && (
-                    <p className="text-xs text-slate-500 mt-1 truncate">
-                      {exp.notes}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="font-semibold text-white">
                       ${formatCents(exp.amount)}
                     </p>
                     <p className="text-xs text-slate-500">{exp.currency}</p>
                   </div>
-                  <div className="flex gap-1">
-                    {isReadOnly ? (
-                      <Button asChild variant="outline" size="sm">
-                        <a href={`/expenses/${exp.id}`}>Open</a>
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingExpense(exp)}
-                          title="Edit expense"
-                          className="size-8"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeletingExpense(exp)}
-                          title="Delete expense"
-                          className="size-8 hover:text-red-400"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                </a>
+                <div className="flex gap-1 shrink-0">
+                  {exp.status === "active" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeletingExpense(exp);
+                      }}
+                      title="Delete expense"
+                      className="size-8 hover:text-red-400"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                  <ChevronRight
+                    className="size-4 text-slate-500 self-center"
+                    aria-hidden="true"
+                  />
                 </div>
               </Card>
             );
@@ -352,15 +339,6 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
         offset={offset}
         onPageChange={setOffset}
       />
-
-      {editingExpense && (
-        <ExpenseEditModal
-          expense={editingExpense}
-          categories={categories}
-          onSave={handleEditSave}
-          onClose={() => setEditingExpense(null)}
-        />
-      )}
 
       {deletingExpense && (
         <ExpenseDeleteConfirm

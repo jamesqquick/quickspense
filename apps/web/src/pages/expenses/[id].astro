@@ -1,12 +1,29 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { ExpenseReview } from "../../components/ExpenseReview";
+import { expenses, createDb } from "@quickspense/domain";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/login");
 }
 
 const { id } = Astro.params;
+
+// Server-side fetch so we can pick the right page heading without flashing.
+// The component re-fetches client-side too for live updates.
+const db = createDb(Astro.locals.runtime.env.DB);
+const expense = await expenses.getExpense(db, id!, Astro.locals.user.id);
+
+if (!expense) {
+  return Astro.redirect("/expenses");
+}
+
+const heading =
+  expense.status === "needs_review"
+    ? "Review Expense"
+    : expense.status === "active"
+      ? "Edit Expense"
+      : "Expense";
 ---
 
 <Layout>
@@ -17,6 +34,6 @@ const { id } = Astro.params;
       >&larr; Back to Expenses</a
     >
   </div>
-  <h1 class="text-2xl font-bold text-white mb-6">Expense</h1>
+  <h1 class="text-2xl font-bold text-white mb-6">{heading}</h1>
   <ExpenseReview expenseId={id!} client:load />
 </Layout>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import type { Expense, ExpenseStatus, ParsedExpense, Category } from "@quickspense/domain";
+import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Trash2 } from "lucide-react";
 
 type Props = {
   expenseId: string;
@@ -84,6 +86,7 @@ export function ExpenseReview({ expenseId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [progressDetail, setProgressDetail] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [usingWebSocket, setUsingWebSocket] = useState(false);
@@ -396,7 +399,13 @@ export function ExpenseReview({ expenseId }: Props) {
     : 0;
 
   return (
-    <div className={`grid grid-cols-1 ${hasImage ? "lg:grid-cols-2" : ""} gap-8`}>
+    <div
+      className={
+        hasImage
+          ? "grid grid-cols-1 lg:grid-cols-2 gap-8"
+          : "max-w-2xl"
+      }
+    >
       {/* Image (if attached) */}
       {hasImage && (
         <div>
@@ -624,8 +633,29 @@ export function ExpenseReview({ expenseId }: Props) {
               {reprocessing ? "Starting..." : "Reprocess"}
             </Button>
           )}
+          {isActive && (
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-red-400 hover:text-red-300 ml-auto"
+            >
+              <Trash2 className="size-4" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
+
+      {confirmingDelete && expense && (
+        <ExpenseDeleteConfirm
+          expense={expense}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            window.location.href = "/expenses";
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
     </div>
   );
 }
