@@ -10,6 +10,7 @@ import {
   extractStructuredData,
   normalizeExtractedData,
 } from "./ai/extract.js";
+import type { ReceiptStatusDO, StatusUpdate } from "./receipt-status.js";
 
 type WorkflowParams = {
   receiptId: string;
@@ -20,6 +21,14 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
   Env,
   WorkflowParams
 > {
+  private notifyStatus(receiptId: string, update: Omit<StatusUpdate, "timestamp">): void {
+    const stub = this.env.RECEIPT_STATUS_DO.idFromName(receiptId);
+    const obj = this.env.RECEIPT_STATUS_DO.get(stub) as DurableObjectStub<ReceiptStatusDO>;
+    obj.notify({ ...update, timestamp: Date.now() }).catch(() => {
+      // Best-effort: don't fail the workflow if notification fails
+    });
+  }
+
   async run(
     event: WorkflowEvent<WorkflowParams>,
     step: WorkflowStep,
@@ -54,6 +63,11 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
       await step.do("mark-processing", async () => {
         await receipts.updateReceiptStatus(db, receiptId, "processing");
       });
+      this.notifyStatus(receiptId, {
+        status: "processing",
+        step: "mark-processing",
+        detail: "Starting receipt processing...",
+      });
 
       // Step 2: Load file from R2 and OCR in a single step to avoid the
       // 1 MiB Workflow step-output limit (base64 images easily exceed it).
@@ -86,6 +100,11 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
           );
         },
       );
+      this.notifyStatus(receiptId, {
+        status: "processing",
+        step: "ocr",
+        detail: "Reading receipt text...",
+      });
 
       // Step 3: Extract structured data
       const extracted = await step.do(
@@ -98,10 +117,20 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
           return extractStructuredData(this.env.AI, ocrText);
         },
       );
+      this.notifyStatus(receiptId, {
+        status: "processing",
+        step: "extract",
+        detail: "Extracting receipt data...",
+      });
 
       // Step 4: Normalize
       const normalized = await step.do("normalize", async () => {
         return normalizeExtractedData(extracted);
+      });
+      this.notifyStatus(receiptId, {
+        status: "processing",
+        step: "normalize",
+        detail: "Normalizing data...",
       });
 
       // Step 5: Persist parsed results
@@ -121,10 +150,20 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
           rawResponse: JSON.stringify(extracted),
         });
       });
+      this.notifyStatus(receiptId, {
+        status: "processing",
+        step: "persist-results",
+        detail: "Saving results...",
+      });
 
       // Step 6: Mark as needs_review
       await step.do("mark-needs-review", async () => {
         await receipts.updateReceiptStatus(db, receiptId, "needs_review");
+      });
+      this.notifyStatus(receiptId, {
+        status: "needs_review",
+        step: "complete",
+        detail: "Processing complete! Ready for review.",
       });
       logger.info("Workflow completed successfully");
     } catch (error) {
@@ -138,6 +177,11 @@ export class ReceiptProcessingWorkflow extends WorkflowEntrypoint<
           "failed",
           message,
         );
+      });
+      this.notifyStatus(receiptId, {
+        status: "failed",
+        step: "error",
+        detail: error instanceof Error ? error.message : "Processing failed",
       });
     }
   }
