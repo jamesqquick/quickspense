@@ -38,7 +38,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["ReceiptStatusDO"]
+      "new_sqlite_classes": ["ReceiptStatusDO"]
     }
   ]
 }
