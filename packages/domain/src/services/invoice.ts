@@ -322,16 +322,23 @@ export async function updateDraftInvoice(
   return updated;
 }
 
-export async function deleteDraftInvoice(
+/**
+ * Delete an invoice. Only `draft` and `void` invoices can be deleted.
+ * Sent or paid invoices must be voided first to preserve an audit trail and
+ * avoid breaking active Stripe Checkout sessions.
+ *
+ * Line items are removed automatically via the `ON DELETE CASCADE` foreign key.
+ */
+export async function deleteInvoice(
   db: Database,
   invoiceId: string,
   userId: string,
 ): Promise<void> {
   const existing = await getInvoice(db, invoiceId, userId);
   if (!existing) throw new NotFoundError("Invoice", invoiceId);
-  if (existing.status !== "draft") {
+  if (existing.status !== "draft" && existing.status !== "void") {
     throw new ConflictError(
-      "Only draft invoices can be deleted. Void the invoice instead.",
+      "Only draft or void invoices can be deleted. Void the invoice first.",
     );
   }
   await db

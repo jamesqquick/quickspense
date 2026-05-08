@@ -147,7 +147,7 @@ describe("invoices", () => {
     ).rejects.toThrow(/draft/i);
   });
 
-  it("blocks deleting a non-draft invoice", async () => {
+  it("blocks deleting a sent invoice (must be voided first)", async () => {
     const db = createDb(env.DB);
     const user = await auth.createUser(db, "user@test.com", "password123");
 
@@ -158,8 +158,60 @@ describe("invoices", () => {
     await invoices.markInvoiceSent(db, invoice.id, user.id);
 
     await expect(
-      invoices.deleteDraftInvoice(db, invoice.id, user.id),
-    ).rejects.toThrow(/draft/i);
+      invoices.deleteInvoice(db, invoice.id, user.id),
+    ).rejects.toThrow(/draft or void/i);
+  });
+
+  it("blocks deleting a paid invoice", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    await invoices.markInvoiceSent(db, invoice.id, user.id);
+    await invoices.markInvoicePaidByPayToken(db, invoice.pay_token, {
+      stripeSessionId: "cs_test_paid",
+      amountTotal: invoice.total,
+      currency: "usd",
+    });
+
+    await expect(
+      invoices.deleteInvoice(db, invoice.id, user.id),
+    ).rejects.toThrow(/draft or void/i);
+  });
+
+  it("deletes a draft invoice and its line items", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+
+    await invoices.deleteInvoice(db, invoice.id, user.id);
+
+    const fetched = await invoices.getInvoice(db, invoice.id, user.id);
+    expect(fetched).toBeNull();
+  });
+
+  it("deletes a void invoice", async () => {
+    const db = createDb(env.DB);
+    const user = await auth.createUser(db, "user@test.com", "password123");
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    await invoices.markInvoiceSent(db, invoice.id, user.id);
+    await invoices.voidInvoice(db, invoice.id, user.id);
+
+    await invoices.deleteInvoice(db, invoice.id, user.id);
+
+    const fetched = await invoices.getInvoice(db, invoice.id, user.id);
+    expect(fetched).toBeNull();
   });
 
   it("blocks voiding a paid invoice", async () => {
