@@ -211,6 +211,15 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
+          <Button variant="outline" asChild className="w-full sm:w-auto">
+            <a
+              href={`/api/invoices/${invoiceId}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download PDF
+            </a>
+          </Button>
           {invoice.status === "draft" && (
             <>
               <Button

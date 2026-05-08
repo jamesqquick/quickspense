@@ -1,0 +1,38 @@
+---
+import {
+  invoices,
+  businessProfiles,
+  createDb,
+} from "@quickspense/domain";
+import { renderInvoicePrintHtml } from "../../../lib/invoicePrintHtml";
+
+const env = Astro.locals.runtime.env;
+const db = createDb(env.DB);
+const token = Astro.params.token!;
+
+// Don't leak the pay_token via Referer when the user navigates away.
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const invoice = await invoices.getInvoiceByPayToken(db, token);
+
+// Refuse drafts (not meant to be public) and voided invoices (the pay link
+// is dead). Use 404 — same response shape as a missing token, so we don't
+// leak which tokens correspond to draft/void invoices specifically.
+if (!invoice || invoice.status === "draft" || invoice.status === "void") {
+  return new Response("Invoice not available", { status: 404 });
+}
+
+const profile = await businessProfiles.getBusinessProfile(db, invoice.user_id);
+
+const html = renderInvoicePrintHtml(invoice, profile, {
+  fallbackIssuerName: env.EMAIL_FROM_NAME,
+  appUrl: env.APP_URL,
+});
+
+return new Response(html, {
+  headers: {
+    "Content-Type": "text/html; charset=utf-8",
+    "Referrer-Policy": "no-referrer",
+  },
+});
+---

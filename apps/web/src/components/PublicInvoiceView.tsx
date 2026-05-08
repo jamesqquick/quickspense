@@ -236,7 +236,7 @@ export function PublicInvoiceView({
         )}
       </Card>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         {isPayable && (
           <Button size="lg" onClick={startCheckout} disabled={paying}>
             {paying ? "Redirecting..." : `Pay $${formatCents(invoice.total)}`}
@@ -251,6 +251,17 @@ export function PublicInvoiceView({
           <p className="text-red-300 text-center">
             This invoice has been voided.
           </p>
+        )}
+        {(isPayable || isPaid) && (
+          <Button variant="outline" asChild>
+            <a
+              href={`/api/invoices/public/${token}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download PDF
+            </a>
+          </Button>
         )}
       </div>
     </div>
