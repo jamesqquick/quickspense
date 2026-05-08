@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
+import { MoreHorizontal } from "lucide-react";
 import type { Invoice, InvoiceStatus } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 
 const PAGE_SIZE = 20;
@@ -19,12 +27,19 @@ function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+function canDelete(status: InvoiceStatus): boolean {
+  return status === "draft" || status === "void";
+}
+
 export function InvoiceList() {
   const [items, setItems] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<InvoiceStatus | "all">("all");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchInvoices = async (requestedOffset = offset) => {
     setLoading(true);
@@ -58,6 +73,31 @@ export function InvoiceList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset]);
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeletePending(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/invoices/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete invoice");
+      }
+      // Optimistically remove from list, refresh totals.
+      setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id));
+      setTotal((prev) => Math.max(prev - 1, 0));
+      setDeleteTarget(null);
+      // Re-fetch to refill page if needed.
+      fetchInvoices(offset);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeletePending(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -81,6 +121,12 @@ export function InvoiceList() {
         </Button>
       </div>
 
+      {deleteError && (
+        <p className="text-sm text-red-400" role="alert">
+          {deleteError}
+        </p>
+      )}
+
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -103,35 +149,61 @@ export function InvoiceList() {
       ) : (
         <div className="space-y-2">
           {items.map((invoice) => (
-            <a
+            <Card
               key={invoice.id}
-              href={`/invoices/${invoice.id}`}
-              className="block"
+              className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 hover:bg-white/5 transition-colors duration-200"
             >
-              <Card className="rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 hover:bg-white/5 transition-colors duration-200">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-white">
-                      {invoice.invoice_number}
-                    </p>
-                    <InvoiceStatusBadge status={invoice.status} />
-                  </div>
-                  <p className="text-sm text-slate-500 truncate">
-                    {invoice.client_name} &middot; {invoice.client_email}
+              <a
+                href={`/invoices/${invoice.id}`}
+                className="min-w-0 flex-1 block"
+              >
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-white">
+                    {invoice.invoice_number}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Created {invoice.created_at.split("T")[0]}
-                    {` · Due ${invoice.due_date}`}
-                  </p>
+                  <InvoiceStatusBadge status={invoice.status} />
                 </div>
-                <div className="text-right">
+                <p className="text-sm text-slate-500 truncate">
+                  {invoice.client_name} &middot; {invoice.client_email}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Created {invoice.created_at.split("T")[0]}
+                  {` · Due ${invoice.due_date}`}
+                </p>
+              </a>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/invoices/${invoice.id}`}
+                  className="text-right block"
+                >
                   <p className="font-semibold text-white">
                     ${formatCents(invoice.total)}
                   </p>
                   <p className="text-xs text-slate-500">{invoice.currency}</p>
-                </div>
-              </Card>
-            </a>
+                </a>
+                {canDelete(invoice.status) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Actions for ${invoice.invoice_number}`}
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() => setDeleteTarget(invoice)}
+                        className="text-red-300 focus:text-red-200"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </Card>
           ))}
         </div>
       )}
@@ -141,6 +213,26 @@ export function InvoiceList() {
         limit={PAGE_SIZE}
         offset={offset}
         onPageChange={setOffset}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletePending) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Delete invoice?"
+        description={
+          deleteTarget
+            ? `Permanently delete ${deleteTarget.invoice_number}? This removes the invoice and its line items and cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        pending={deletePending}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -3,12 +3,21 @@ import type { InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import {
   InvoiceForm,
   buildInvoicePayload,
   type InvoiceFormValues,
 } from "./InvoiceForm";
+
+type ConfirmState = {
+  title: string;
+  description: React.ReactNode;
+  confirmLabel: string;
+  variant?: "default" | "destructive";
+  run: () => Promise<void>;
+};
 
 function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -40,6 +49,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [devEmailSkipped, setDevEmailSkipped] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -75,10 +85,8 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
 
   const performAction = async (
     path: string,
-    confirmMessage?: string,
     method: "POST" | "DELETE" = "POST",
   ) => {
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
     setActionError(null);
     setActionPending(true);
     try {
@@ -108,6 +116,28 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
     } finally {
       setActionPending(false);
     }
+  };
+
+  const requestDelete = () => {
+    setConfirm({
+      title: "Delete invoice?",
+      description:
+        "This permanently removes the invoice and its line items. This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+      run: () => performAction(`/api/invoices/${invoiceId}`, "DELETE"),
+    });
+  };
+
+  const requestVoid = () => {
+    setConfirm({
+      title: "Void this invoice?",
+      description:
+        "Voiding marks the invoice as cancelled. The pay link will stop working.",
+      confirmLabel: "Void invoice",
+      variant: "destructive",
+      run: () => performAction(`/api/invoices/${invoiceId}/void`),
+    });
   };
 
   if (loading) {
@@ -181,13 +211,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
               <Button
                 variant="ghost"
                 disabled={actionPending}
-                onClick={() =>
-                  performAction(
-                    `/api/invoices/${invoiceId}`,
-                    "Delete this draft? This cannot be undone.",
-                    "DELETE",
-                  )
-                }
+                onClick={requestDelete}
                 className="hover:text-red-400"
               >
                 Delete
@@ -206,20 +230,42 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
               <Button
                 variant="ghost"
                 disabled={actionPending}
-                onClick={() =>
-                  performAction(
-                    `/api/invoices/${invoiceId}/void`,
-                    "Void this invoice? It can no longer be paid.",
-                  )
-                }
+                onClick={requestVoid}
                 className="hover:text-red-400"
               >
                 Void
               </Button>
             </>
           )}
+          {invoice.status === "void" && (
+            <Button
+              variant="ghost"
+              disabled={actionPending}
+              onClick={requestDelete}
+              className="hover:text-red-400"
+            >
+              Delete
+            </Button>
+          )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionPending) setConfirm(null);
+        }}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel={confirm?.confirmLabel ?? "Confirm"}
+        variant={confirm?.variant}
+        pending={actionPending}
+        onConfirm={async () => {
+          if (!confirm) return;
+          await confirm.run();
+          setConfirm(null);
+        }}
+      />
 
       {actionError && (
         <p className="text-sm text-red-400" role="alert">

@@ -69,7 +69,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     const db = createDb(locals.runtime.env.DB);
     const invoiceId = params.id!;
 
-    await invoices.deleteDraftInvoice(db, invoiceId, user.id);
+    await invoices.deleteInvoice(db, invoiceId, user.id);
     return new Response(null, { status: 204 });
   } catch (e: unknown) {
     if (e instanceof DomainError) {
