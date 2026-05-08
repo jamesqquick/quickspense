@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { InvoiceWithLineItems } from "@quickspense/domain";
+import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +46,7 @@ function invoiceToFormValues(invoice: InvoiceWithLineItems): InvoiceFormValues {
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [invoice, setInvoice] = useState<InvoiceWithLineItems | null>(null);
+  const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [actionPending, setActionPending] = useState(false);
