@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
-import { Trash2, Search, X, Image as ImageIcon, ChevronRight } from "lucide-react";
+import { Trash2, Search, X, Image as ImageIcon } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -306,27 +306,21 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
                     <p className="text-xs text-slate-500">{exp.currency}</p>
                   </div>
                 </a>
-                <div className="flex gap-1 shrink-0">
-                  {exp.status === "active" && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDeletingExpense(exp);
-                      }}
-                      title="Delete expense"
-                      className="size-8 hover:text-red-400"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                  <ChevronRight
-                    className="size-4 text-slate-500 self-center"
-                    aria-hidden="true"
-                  />
-                </div>
+                {exp.status === "active" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDeletingExpense(exp);
+                    }}
+                    title="Delete expense"
+                    className="size-8 shrink-0 hover:text-red-400"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </Card>
             );
           })}
