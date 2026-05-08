@@ -134,7 +134,7 @@ The invoicing feature uses Stripe Checkout. To test it on `localhost:4321`:
 5. **Verify local D1 has invoice tables**:
    ```bash
    pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db \
-     --local --persist-to=../../.wrangler-shared \
+     --local --persist-to=../../.wrangler \
      --command "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%invoice%'"
    ```
 6. **Start dev** (another terminal): `pnpm dev:web`
