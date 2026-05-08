@@ -163,16 +163,19 @@ export class ExpenseProcessingWorkflow extends WorkflowEntrypoint<
       });
       logger.info("Workflow completed successfully");
     } catch (error) {
+      // Log full error detail for observability; surface a friendly message
+      // to the user. We never want to leak stack traces, fetch errors, or
+      // AI provider responses into the UI.
       logger.error("Workflow failed", { error });
+      const userMessage =
+        "We couldn't read this receipt. Try uploading a clearer image, or enter the expense manually.";
       await step.do("mark-failed", async () => {
-        const message =
-          error instanceof Error ? error.message : "Unknown error";
-        await expenses.updateExpenseStatus(db, expenseId, "failed", message);
+        await expenses.updateExpenseStatus(db, expenseId, "failed", userMessage);
       });
       this.notifyStatus(expenseId, {
         status: "failed",
         step: "error",
-        detail: error instanceof Error ? error.message : "Processing failed",
+        detail: userMessage,
       });
     }
   }

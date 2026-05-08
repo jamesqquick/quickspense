@@ -63,10 +63,10 @@ export async function triggerExpenseWorkflow(
     }
   }
 
-  const errorMessage =
-    lastError instanceof Error
-      ? `Workflow trigger failed: ${lastError.message}`
-      : "Workflow trigger failed";
+  // User-facing message. Intentionally generic — internal failure modes
+  // (network, fetch, status codes) are noise to the user. Full details go
+  // to the structured logger so we can debug from observability tools.
+  const userMessage = "We couldn't start receipt processing. Try again.";
 
   logger?.error("Workflow trigger failed after retries", {
     expenseId,
@@ -80,11 +80,11 @@ export async function triggerExpenseWorkflow(
   try {
     const current = await expenses.getExpense(db, expenseId);
     if (current?.status === "processing" && !current.workflow_id) {
-      await expenses.updateExpenseStatus(db, expenseId, "failed", errorMessage);
+      await expenses.updateExpenseStatus(db, expenseId, "failed", userMessage);
     }
   } catch (e) {
     logger?.error("Failed to mark expense as failed", { expenseId, error: e });
   }
 
-  return { success: false, error: errorMessage };
+  return { success: false, error: userMessage };
 }
