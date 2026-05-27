@@ -123,10 +123,10 @@ LEFT JOIN (
   SELECT pr1.*
   FROM parsed_receipts pr1
   INNER JOIN (
-    SELECT receipt_id, MAX(created_at) AS max_created
+    SELECT receipt_id, MAX(rowid) AS max_rowid
     FROM parsed_receipts
     GROUP BY receipt_id
-  ) latest ON latest.receipt_id = pr1.receipt_id AND latest.max_created = pr1.created_at
+  ) latest ON latest.receipt_id = pr1.receipt_id AND latest.max_rowid = pr1.rowid
 ) pr ON pr.receipt_id = r.id
 WHERE r.status != 'finalized';
 

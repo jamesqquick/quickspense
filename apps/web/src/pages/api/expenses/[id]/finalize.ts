@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const db = createDb(locals.runtime.env.DB);
     const expenseId = params.id!;
 
-    const expense = await expenses.getExpense(db, expenseId, user.id);
+    const expense = await expenses.getExpenseForUser(db, expenseId, user.id);
     if (!expense) {
       return new Response(JSON.stringify({ error: "Expense not found" }), {
         status: 404,
@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       notes: parsed.data.notes,
     });
 
-    const finalized = await expenses.getExpense(db, expenseId, user.id);
+    const finalized = await expenses.getExpenseForUser(db, expenseId, user.id);
 
     return new Response(JSON.stringify({ expense: finalized }), {
       status: 200,

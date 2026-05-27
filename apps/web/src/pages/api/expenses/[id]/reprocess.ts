@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const worker = locals.runtime.env.WORKER;
   const expenseId = params.id!;
 
-  const expense = await expenses.getExpense(db, expenseId, user.id);
+  const expense = await expenses.getExpenseForUser(db, expenseId, user.id);
   if (!expense) {
     return new Response(JSON.stringify({ error: "Expense not found" }), {
       status: 404,

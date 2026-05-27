@@ -15,7 +15,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const db = createDb(locals.runtime.env.DB);
   const expenseId = params.id!;
 
-  const expense = await expenses.getExpense(db, expenseId, user.id);
+  const expense = await expenses.getExpenseForUser(db, expenseId, user.id);
   if (!expense) {
     return new Response(JSON.stringify({ error: "Expense not found" }), {
       status: 404,
@@ -46,7 +46,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     const db = createDb(locals.runtime.env.DB);
     const expenseId = params.id!;
 
-    const expense = await expenses.getExpense(db, expenseId, user.id);
+    const expense = await expenses.getExpenseForUser(db, expenseId, user.id);
     if (!expense) {
       return new Response(JSON.stringify({ error: "Expense not found" }), {
         status: 404,

@@ -15,7 +15,7 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
   const bucket = locals.runtime.env.BUCKET;
   const expenseId = params.id!;
 
-  const expense = await expenses.getExpense(db, expenseId, user.id);
+  const expense = await expenses.getExpenseForUser(db, expenseId, user.id);
   if (!expense || !expense.file_key || !expense.file_type) {
     return new Response("Not found", { status: 404 });
   }

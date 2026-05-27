@@ -12,7 +12,7 @@ const { id } = Astro.params;
 // Server-side fetch so we can pick the right page heading without flashing.
 // The component re-fetches client-side too for live updates.
 const db = createDb(Astro.locals.runtime.env.DB);
-const expense = await expenses.getExpense(db, id!, Astro.locals.user.id);
+const expense = await expenses.getExpenseForUser(db, id!, Astro.locals.user.id);
 
 if (!expense) {
   return Astro.redirect("/expenses");

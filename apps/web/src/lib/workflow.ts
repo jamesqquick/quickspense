@@ -78,7 +78,7 @@ export async function triggerExpenseWorkflow(
   // upload). Reprocess attempts leave the expense in its existing state and
   // surface the error via HTTP status.
   try {
-    const current = await expenses.getExpense(db, expenseId);
+    const current = await expenses.getExpenseById(db, expenseId);
     if (current?.status === "processing" && !current.workflow_id) {
       await expenses.updateExpenseStatus(db, expenseId, "failed", userMessage);
     }

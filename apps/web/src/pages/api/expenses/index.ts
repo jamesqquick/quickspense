@@ -138,7 +138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
 
       const finalExpense =
-        (await expenses.getExpense(db, expense.id, user.id)) ?? expense;
+        (await expenses.getExpenseForUser(db, expense.id, user.id)) ?? expense;
       return new Response(
         JSON.stringify(
           triggerResult.success
@@ -186,10 +186,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const fileKey = `expenses/${crypto.randomUUID()}/${file.name}`;
-    await bucket.put(fileKey, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type },
-    });
 
+    // Insert DB row first so a failed insert doesn't leave an orphan in R2.
     const expense = await expenses.createManualExpense(db, {
       userId: user.id,
       merchant: parsedManual.data.merchant,
@@ -204,6 +202,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         fileSize: file.size,
         fileType: file.type,
       },
+    });
+
+    await bucket.put(fileKey, await file.arrayBuffer(), {
+      httpMetadata: { contentType: file.type },
     });
 
     return new Response(JSON.stringify(expense), {

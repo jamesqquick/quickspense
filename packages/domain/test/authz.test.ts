@@ -78,12 +78,12 @@ describe("multi-tenant authorization", () => {
     });
 
     // User A can read their own expense
-    const ownExpense = await expenses.getExpense(db, aProcessing.id, userA.id);
+    const ownExpense = await expenses.getExpenseForUser(db, aProcessing.id, userA.id);
     expect(ownExpense).not.toBeNull();
     expect(ownExpense?.id).toBe(aProcessing.id);
 
     // User B cannot
-    const crossExpense = await expenses.getExpense(db, aProcessing.id, userB.id);
+    const crossExpense = await expenses.getExpenseForUser(db, aProcessing.id, userB.id);
     expect(crossExpense).toBeNull();
 
     // User B's list doesn't include User A's expense

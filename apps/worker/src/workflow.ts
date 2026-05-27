@@ -53,7 +53,7 @@ export class ExpenseProcessingWorkflow extends WorkflowEntrypoint<
     // Idempotency guard: no-op if the expense is already active or finalized
     // through another path.
     const shouldSkip = await step.do("idempotency-check", async () => {
-      const expense = await expenses.getExpense(db, expenseId);
+      const expense = await expenses.getExpenseById(db, expenseId);
       if (!expense) return true;
       if (expense.status === "active") return true;
       return false;
@@ -82,7 +82,7 @@ export class ExpenseProcessingWorkflow extends WorkflowEntrypoint<
           timeout: "2 minutes",
         },
         async () => {
-          const expense = await expenses.getExpense(db, expenseId);
+          const expense = await expenses.getExpenseById(db, expenseId);
           if (!expense) throw new Error(`Expense ${expenseId} not found`);
           if (!expense.file_key || !expense.file_type) {
             throw new Error(`Expense ${expenseId} has no attached image`);

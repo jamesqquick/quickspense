@@ -138,7 +138,7 @@ export function DashboardSummary() {
               <p className="text-3xl font-bold text-yellow-400 mt-1">
                 {statusCounts["processing"] ?? 0}
               </p>
-              <p className="text-sm text-slate-500 mt-1">receipts being parsed</p>
+              <p className="text-sm text-slate-500 mt-1">expenses being processed</p>
             </CardContent>
           </Card>
         </a>

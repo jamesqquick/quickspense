@@ -95,7 +95,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     },
     async ({ expenseId }) =>
       runTool(async () => {
-        const expense = await expenses.getExpense(db, expenseId, userId);
+        const expense = await expenses.getExpenseForUser(db, expenseId, userId);
         if (!expense) throw new NotFoundError("Expense", expenseId);
         const parsed = await parse.getLatestParsedExpense(db, expenseId);
         return { expense, parsed };
@@ -159,7 +159,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     },
     async ({ expenseId, ...fields }) =>
       runTool(async () => {
-        const expense = await expenses.getExpense(db, expenseId, userId);
+        const expense = await expenses.getExpenseForUser(db, expenseId, userId);
         if (!expense) throw new NotFoundError("Expense", expenseId);
 
         const latest = await parse.getLatestParsedExpense(db, expenseId);
@@ -184,7 +184,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     },
     async ({ expenseId, merchant, amount, currency, expense_date, category_id, notes }) =>
       runTool(async () => {
-        const expense = await expenses.getExpense(db, expenseId, userId);
+        const expense = await expenses.getExpenseForUser(db, expenseId, userId);
         if (!expense) throw new NotFoundError("Expense", expenseId);
         if (expense.status !== "needs_review") {
           throw new InvalidStateTransitionError(expense.status, "active");
@@ -197,7 +197,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
           category_id,
           notes,
         });
-        return await expenses.getExpense(db, expenseId, userId);
+        return await expenses.getExpenseForUser(db, expenseId, userId);
       }),
   );
 
@@ -209,7 +209,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     },
     async ({ expenseId }) =>
       runTool(async () => {
-        const expense = await expenses.getExpense(db, expenseId, userId);
+        const expense = await expenses.getExpenseForUser(db, expenseId, userId);
         if (!expense) throw new NotFoundError("Expense", expenseId);
         if (!["needs_review", "failed"].includes(expense.status)) {
           throw new InvalidStateTransitionError(expense.status, "processing");
@@ -252,7 +252,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     { description: "Expense record with parsed data (if any)" },
     async (uri) => {
       const expenseId = uri.pathname.replace(/^\/\//, "");
-      const expense = await expenses.getExpense(db, expenseId, userId);
+      const expense = await expenses.getExpenseForUser(db, expenseId, userId);
       const parsed = expense ? await parse.getLatestParsedExpense(db, expenseId) : null;
       return {
         contents: [
@@ -272,7 +272,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
     { description: "Raw OCR text from a receipt-uploaded expense" },
     async (uri) => {
       const expenseId = uri.pathname.replace(/^\/\//, "").split("/")[0];
-      const expense = await expenses.getExpense(db, expenseId, userId);
+      const expense = await expenses.getExpenseForUser(db, expenseId, userId);
       const text = expense
         ? (await parse.getLatestParsedExpense(db, expenseId))?.ocr_text ||
           "No OCR text available"
