@@ -31,8 +31,7 @@ const currentPath = Astro.url.pathname;
           <!-- Desktop nav -->
           <div class="hidden md:flex items-center gap-6">
             <a href="/dashboard" class:list={["text-sm transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
-            <a href="/receipts" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
-            <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+            <a href="/expenses" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/expenses") || currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
             <a href="/invoices" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/invoices") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Invoices</a>
             <a href="/categories" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
             <a href="/settings" class:list={["text-sm transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
@@ -51,8 +50,7 @@ const currentPath = Astro.url.pathname;
         <!-- Mobile menu -->
         <div id="app-menu" class="hidden md:hidden px-4 pb-4 space-y-1">
           <a href="/dashboard" class:list={["block text-sm py-2 transition-colors duration-200", currentPath === "/dashboard" ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Dashboard</a>
-          <a href="/receipts" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Receipts</a>
-          <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
+          <a href="/expenses" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/expenses") || currentPath.startsWith("/receipts") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Expenses</a>
           <a href="/invoices" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/invoices") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Invoices</a>
           <a href="/categories" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/categories") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Categories</a>
           <a href="/settings" class:list={["block text-sm py-2 transition-colors duration-200", currentPath.startsWith("/settings") ? "text-accent-400 font-medium" : "text-slate-400 hover:text-white"]}>Settings</a>
@@ -93,9 +91,9 @@ const currentPath = Astro.url.pathname;
 
 
     {/* Mobile FAB: quick access to upload, hidden on desktop and on the upload page itself */}
-    {user && !currentPath.startsWith("/receipts/upload") && (
+    {user && !currentPath.startsWith("/expenses/upload") && (
       <a
-        href="/receipts/upload"
+        href="/expenses/upload"
         class="md:hidden fixed bottom-safe right-6 w-14 h-14 bg-accent-500 hover:bg-accent-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-accent-500/25 active:scale-95 transition-all duration-200 z-40"
         aria-label="Upload receipt"
       >

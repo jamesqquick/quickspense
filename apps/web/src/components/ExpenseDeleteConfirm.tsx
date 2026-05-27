@@ -17,7 +17,8 @@ type ExpenseDeleteConfirmProps = {
   onCancel: () => void;
 };
 
-function formatCents(cents: number): string {
+function formatCents(cents: number | null): string {
+  if (cents === null) return "—";
   return (cents / 100).toFixed(2);
 }
 
@@ -57,7 +58,9 @@ export function ExpenseDeleteConfirm({
           <DialogTitle>Delete Expense</DialogTitle>
           <DialogDescription>
             Are you sure you want to delete{" "}
-            <span className="text-white font-medium">{expense.merchant}</span>{" "}
+            <span className="text-white font-medium">
+              {expense.merchant ?? "this expense"}
+            </span>{" "}
             for{" "}
             <span className="text-white font-medium">
               ${formatCents(expense.amount)}

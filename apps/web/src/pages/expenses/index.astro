@@ -1,13 +1,30 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { ExpenseList } from "../../components/ExpenseList";
+import type { ExpenseStatus } from "@quickspense/domain";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/login");
 }
+
+// Initial status tab is read from `?status=` so deep links from the dashboard
+// can land on a specific tab. Defaults to "active" (only confirmed expenses).
+const statusParam = Astro.url.searchParams.get("status");
+const validStatuses: ExpenseStatus[] = [
+  "active",
+  "processing",
+  "needs_review",
+  "failed",
+];
+const initialStatus: "" | ExpenseStatus =
+  statusParam === "" || statusParam === "all"
+    ? ""
+    : (validStatuses as string[]).includes(statusParam ?? "")
+      ? (statusParam as ExpenseStatus)
+      : "active";
 ---
 
 <Layout>
   <h1 class="text-2xl font-bold text-white mb-6">Expenses</h1>
-  <ExpenseList client:load />
+  <ExpenseList initialStatus={initialStatus} client:load />
 </Layout>

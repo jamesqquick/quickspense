@@ -1,10 +1,10 @@
-import { eq, and, desc, isNull, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, isNotNull, sql } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import {
   users,
   sessions,
   apiTokens,
-  receipts,
+  expenses,
   passwordResetTokens,
 } from "../db/schema.js";
 import type { User } from "../types.js";
@@ -348,12 +348,15 @@ export async function deleteUser(
   db: Database,
   userId: string,
 ): Promise<{ fileKeys: string[] }> {
-  // Collect file keys before the cascade removes the receipts rows
+  // Collect file keys before the cascade removes the expense rows. Only
+  // expenses with an attached image have a file_key set.
   const rows = await db
-    .select({ file_key: receipts.file_key })
-    .from(receipts)
-    .where(eq(receipts.user_id, userId));
-  const fileKeys = rows.map((r) => r.file_key);
+    .select({ file_key: expenses.file_key })
+    .from(expenses)
+    .where(and(eq(expenses.user_id, userId), isNotNull(expenses.file_key)));
+  const fileKeys = rows
+    .map((r) => r.file_key)
+    .filter((k): k is string => k !== null);
 
   const result = await db.delete(users).where(eq(users.id, userId));
 

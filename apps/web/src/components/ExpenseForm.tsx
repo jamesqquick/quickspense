@@ -13,6 +13,8 @@ export type ExpenseFormValues = {
   expense_date: string;
   category_id: string;
   notes: string;
+  /** Optional image file. Stored as-is; not parsed. */
+  file?: File | null;
 };
 
 type ExpenseFormProps = {
@@ -22,6 +24,8 @@ type ExpenseFormProps = {
   onCancel?: () => void;
   submitLabel: string;
   submittingLabel: string;
+  /** Show the optional image attachment field. Defaults to false (legacy edit modal). */
+  showImageField?: boolean;
 };
 
 const defaultValues: ExpenseFormValues = {
@@ -31,7 +35,11 @@ const defaultValues: ExpenseFormValues = {
   expense_date: "",
   category_id: "",
   notes: "",
+  file: null,
 };
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 export function ExpenseForm({
   categories,
@@ -40,6 +48,7 @@ export function ExpenseForm({
   onCancel,
   submitLabel,
   submittingLabel,
+  showImageField = false,
 }: ExpenseFormProps) {
   const [values, setValues] = useState<ExpenseFormValues>(
     initialValues ?? defaultValues,
@@ -50,6 +59,24 @@ export function ExpenseForm({
   const set = (field: keyof ExpenseFormValues) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => setValues((v) => ({ ...v, [field]: e.target.value }));
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setValidationError("Image must be JPEG, PNG, or WEBP");
+        e.target.value = "";
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        setValidationError("Image must be under 10MB");
+        e.target.value = "";
+        return;
+      }
+    }
+    setValidationError(null);
+    setValues((v) => ({ ...v, file }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +163,26 @@ export function ExpenseForm({
           onChange={set("notes")}
         />
       </div>
+      {showImageField && (
+        <div>
+          <Label htmlFor="image">Receipt image (optional)</Label>
+          <Input
+            id="image"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            JPEG, PNG, or WEBP up to 10MB. Image is stored alongside the
+            expense, not parsed.
+          </p>
+          {values.file && (
+            <p className="text-xs text-slate-400 mt-1">
+              Selected: {values.file.name}
+            </p>
+          )}
+        </div>
+      )}
       {validationError && (
         <p className="text-red-400 text-sm" role="alert">
           {validationError}

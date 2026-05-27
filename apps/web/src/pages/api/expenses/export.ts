@@ -11,12 +11,16 @@ function csvField(value: string | number | null | undefined): string {
   return s;
 }
 
+/**
+ * Export expenses as CSV.
+ *
+ * Only `active` expenses are exported. `processing`, `needs_review`, and
+ * `failed` rows are unconfirmed and don't belong in a financial export.
+ */
 export const GET: APIRoute = async ({ locals, url }) => {
   const user = locals.user!;
   const db = createDb(locals.runtime.env.DB);
 
-  // Reuse the same filter schema as the regular list endpoint.
-  // Override limit to max so all matching rows are exported.
   const params = listExpensesSchema.safeParse({
     startDate: url.searchParams.get("startDate") || undefined,
     endDate: url.searchParams.get("endDate") || undefined,
@@ -33,13 +37,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
     );
   }
 
-  // Fetch all matching expenses by paging. Cap at 10,000 rows for safety.
   const MAX_ROWS = 10_000;
   const all: import("@quickspense/domain").Expense[] = [];
   let offset = 0;
   while (all.length < MAX_ROWS) {
     const page = await expenses.listExpenses(db, user.id, {
       ...params.data,
+      status: "active",
       limit: 100,
       offset,
     });
@@ -49,11 +53,9 @@ export const GET: APIRoute = async ({ locals, url }) => {
     if (page.items.length < 100) break;
   }
 
-  // Resolve category names once.
   const categoryList = await categories.listCategories(db, user.id);
   const catMap = new Map(categoryList.map((c) => [c.id, c.name]));
 
-  // Build CSV
   const header = [
     "id",
     "date",
@@ -62,7 +64,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     "currency",
     "category",
     "notes",
-    "receipt_id",
+    "has_image",
     "created_at",
   ].join(",");
 
@@ -71,11 +73,11 @@ export const GET: APIRoute = async ({ locals, url }) => {
       csvField(e.id),
       csvField(e.expense_date),
       csvField(e.merchant),
-      csvField((e.amount / 100).toFixed(2)),
+      csvField(e.amount !== null ? (e.amount / 100).toFixed(2) : ""),
       csvField(e.currency),
       csvField(e.category_id ? catMap.get(e.category_id) ?? "" : ""),
       csvField(e.notes),
-      csvField(e.receipt_id),
+      csvField(e.file_key ? "yes" : "no"),
       csvField(e.created_at),
     ].join(","),
   );

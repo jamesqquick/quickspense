@@ -23,7 +23,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   apiTokens: many(apiTokens),
   categories: many(categories),
-  receipts: many(receipts),
   expenses: many(expenses),
   invoices: many(invoices),
   passwordResetTokens: many(passwordResetTokens),
@@ -123,47 +122,68 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Receipts
+// Expenses
 // ---------------------------------------------------------------------------
-export const receipts = sqliteTable(
-  "receipts",
+// Unified expenses table — replaces the previous receipts + expenses split.
+// An expense can be created manually (status='active' immediately) or by
+// uploading a receipt image (status='processing' -> 'needs_review' -> 'active').
+// merchant/amount/expense_date are nullable because rows in `processing`/`failed`
+// haven't been parsed yet. Application code enforces these are set when status
+// reaches `needs_review` or `active`.
+export const expenses = sqliteTable(
+  "expenses",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    file_key: text("file_key").notNull(),
-    file_name: text("file_name").notNull(),
-    file_size: integer("file_size").notNull(),
-    file_type: text("file_type").notNull(),
-    status: text("status").notNull().default("uploaded"),
+    status: text("status").notNull().default("active"),
+    merchant: text("merchant"),
+    amount: integer("amount"),
+    currency: text("currency").notNull().default("USD"),
+    expense_date: text("expense_date"),
+    category_id: text("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    file_key: text("file_key"),
+    file_name: text("file_name"),
+    file_size: integer("file_size"),
+    file_type: text("file_type"),
     error_message: text("error_message"),
     workflow_id: text("workflow_id"),
     created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
     updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("idx_receipts_user_status").on(table.user_id, table.status),
-    index("idx_receipts_updated").on(table.updated_at),
+    index("idx_expenses_user_date").on(table.user_id, table.expense_date),
+    index("idx_expenses_user_status").on(table.user_id, table.status),
   ],
 );
 
-export const receiptsRelations = relations(receipts, ({ one, many }) => ({
-  user: one(users, { fields: [receipts.user_id], references: [users.id] }),
-  parsedReceipts: many(parsedReceipts),
-  expenses: many(expenses),
+export const expensesRelations = relations(expenses, ({ one, many }) => ({
+  user: one(users, { fields: [expenses.user_id], references: [users.id] }),
+  category: one(categories, {
+    fields: [expenses.category_id],
+    references: [categories.id],
+  }),
+  parsedExpenses: many(parsedExpenses),
 }));
 
 // ---------------------------------------------------------------------------
-// Parsed Receipts
+// Parsed Expenses
 // ---------------------------------------------------------------------------
-export const parsedReceipts = sqliteTable(
-  "parsed_receipts",
+// Append-only parse history for expenses created from receipt images.
+// Latest row (by created_at) wins. Rows live only while an expense is in
+// `processing` or `needs_review`; after finalize the user-confirmed values
+// live on the expense itself.
+export const parsedExpenses = sqliteTable(
+  "parsed_expenses",
   {
     id: text("id").primaryKey(),
-    receipt_id: text("receipt_id")
+    expense_id: text("expense_id")
       .notNull()
-      .references(() => receipts.id, { onDelete: "cascade" }),
+      .references(() => expenses.id, { onDelete: "cascade" }),
     ocr_text: text("ocr_text"),
     merchant: text("merchant"),
     total_amount: integer("total_amount"),
@@ -177,58 +197,13 @@ export const parsedReceipts = sqliteTable(
     raw_response: text("raw_response"),
     created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
   },
-  (table) => [
-    index("idx_parsed_receipts_receipt").on(table.receipt_id),
-  ],
+  (table) => [index("idx_parsed_expenses_expense").on(table.expense_id)],
 );
 
-export const parsedReceiptsRelations = relations(
-  parsedReceipts,
-  ({ one }) => ({
-    receipt: one(receipts, {
-      fields: [parsedReceipts.receipt_id],
-      references: [receipts.id],
-    }),
-  }),
-);
-
-// ---------------------------------------------------------------------------
-// Expenses
-// ---------------------------------------------------------------------------
-export const expenses = sqliteTable(
-  "expenses",
-  {
-    id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    receipt_id: text("receipt_id").references(() => receipts.id),
-    merchant: text("merchant").notNull(),
-    amount: integer("amount").notNull(),
-    currency: text("currency").notNull().default("USD"),
-    expense_date: text("expense_date").notNull(),
-    category_id: text("category_id").references(() => categories.id, {
-      onDelete: "set null",
-    }),
-    notes: text("notes"),
-    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [
-    index("idx_expenses_user_date").on(table.user_id, table.expense_date),
-    index("idx_expenses_receipt").on(table.receipt_id),
-  ],
-);
-
-export const expensesRelations = relations(expenses, ({ one }) => ({
-  user: one(users, { fields: [expenses.user_id], references: [users.id] }),
-  receipt: one(receipts, {
-    fields: [expenses.receipt_id],
-    references: [receipts.id],
-  }),
-  category: one(categories, {
-    fields: [expenses.category_id],
-    references: [categories.id],
+export const parsedExpensesRelations = relations(parsedExpenses, ({ one }) => ({
+  expense: one(expenses, {
+    fields: [parsedExpenses.expense_id],
+    references: [expenses.id],
   }),
 }));
 

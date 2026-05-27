@@ -21,14 +21,13 @@ const MCP_CONFIG = JSON.stringify(
 );
 
 const TOOLS = [
-  "list_receipts",
-  "get_receipt",
-  "reprocess_receipt",
-  "update_receipt_fields",
-  "finalize_receipt",
   "list_expenses",
+  "get_expense",
   "create_expense",
   "update_expense",
+  "update_expense_parsed_fields",
+  "finalize_expense",
+  "reprocess_expense",
   "list_categories",
   "create_category",
 ];

@@ -1,8 +1,7 @@
-export type ReceiptStatus =
-  | "uploaded"
+export type ExpenseStatus =
+  | "active"
   | "processing"
   | "needs_review"
-  | "finalized"
   | "failed";
 
 export type User = {
@@ -45,23 +44,29 @@ export type Category = {
   created_at: string;
 };
 
-export type Receipt = {
+export type Expense = {
   id: string;
   user_id: string;
-  file_key: string;
-  file_name: string;
-  file_size: number;
-  file_type: string;
-  status: ReceiptStatus;
+  status: ExpenseStatus;
+  merchant: string | null;
+  amount: number | null;
+  currency: string;
+  expense_date: string | null;
+  category_id: string | null;
+  notes: string | null;
+  file_key: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  file_type: string | null;
   error_message: string | null;
   workflow_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type ParsedReceipt = {
+export type ParsedExpense = {
   id: string;
-  receipt_id: string;
+  expense_id: string;
   ocr_text: string | null;
   merchant: string | null;
   total_amount: number | null;
@@ -74,20 +79,6 @@ export type ParsedReceipt = {
   confidence_score: number | null;
   raw_response: string | null;
   created_at: string;
-};
-
-export type Expense = {
-  id: string;
-  user_id: string;
-  receipt_id: string | null;
-  merchant: string;
-  amount: number;
-  currency: string;
-  expense_date: string;
-  category_id: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
 };
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void";

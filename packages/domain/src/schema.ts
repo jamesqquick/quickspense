@@ -18,19 +18,12 @@ export const updateCategorySchema = z.object({
   name: z.string().min(1, "Category name is required").max(100),
 });
 
-export const receiptStatusSchema = z.enum([
-  "uploaded",
+export const expenseStatusSchema = z.enum([
+  "active",
   "processing",
   "needs_review",
-  "finalized",
   "failed",
 ]);
-
-export const listReceiptsSchema = z.object({
-  status: receiptStatusSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
-});
 
 export const updateParsedFieldsSchema = z.object({
   merchant: z.string().optional(),
@@ -43,7 +36,9 @@ export const updateParsedFieldsSchema = z.object({
   suggested_category: z.string().nullable().optional(),
 });
 
-export const finalizeReceiptSchema = z.object({
+// Used when finalizing a receipt-uploaded expense from `needs_review` -> `active`.
+// User confirms the parsed fields here, possibly edited.
+export const finalizeExpenseSchema = z.object({
   merchant: z.string().min(1, "Merchant is required"),
   amount: z.number().int().positive("Amount must be greater than 0"),
   currency: z.string().min(1, "Currency is required").max(3),
@@ -78,6 +73,7 @@ export const updateExpenseSchema = z.object({
 });
 
 export const listExpensesSchema = z.object({
+  status: expenseStatusSchema.optional(),
   startDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

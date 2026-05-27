@@ -1,0 +1,20 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { UploadForm } from "../../components/UploadForm";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+---
+
+<Layout>
+  <div class="max-w-lg mx-auto">
+    <h1 class="text-2xl font-bold text-white mb-2">Upload Receipts</h1>
+    <p class="text-sm text-slate-400 mb-6">
+      Upload up to 10 receipt images at once. Each one becomes an expense.
+      The AI parses the merchant, total, and date, then you review before
+      finalizing.
+    </p>
+    <UploadForm client:load />
+  </div>
+</Layout>

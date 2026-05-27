@@ -35,7 +35,7 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
     <div className="border border-red-500/30 rounded-2xl p-6 bg-red-500/5">
       <h3 className="text-sm font-semibold text-red-400 mb-2">Delete Account</h3>
       <p className="text-sm text-red-300/80 mb-3">
-        This will permanently delete your account, all receipts (including uploaded files),
+        This will permanently delete your account, all expenses (including any uploaded receipt images),
         all expenses, categories, and API tokens. This cannot be undone.
       </p>
       <p className="text-sm text-red-300/80 mb-2">

@@ -8,7 +8,14 @@ export type StatusUpdate = {
   timestamp: number;
 };
 
-export class ReceiptStatusDO extends DurableObject<Env> {
+/**
+ * Per-expense Durable Object that fan-outs workflow status updates to any
+ * connected WebSocket clients (e.g. the review page in the web app).
+ *
+ * Renamed from `ReceiptStatusDO` when the receipts/expenses concepts merged.
+ * The wrangler `renamed_classes` migration handles existing prod DO state.
+ */
+export class ExpenseStatusDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader !== "websocket") {

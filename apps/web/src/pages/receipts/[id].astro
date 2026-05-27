@@ -1,18 +1,11 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import { ReceiptReview } from "../../components/ReceiptReview";
-
-if (!Astro.locals.user) {
-  return Astro.redirect("/login");
-}
-
+// Legacy /receipts/[id] route. Receipts now ARE expenses; the legacy id is
+// either a receipt that was finalized (in which case it points to a
+// different expense id, but we redirect by id since the id is preserved for
+// non-finalized receipts) or a non-finalized receipt whose expense reuses
+// the id. The migration preserved ids for the latter; for finalized rows,
+// a 301 to /expenses?status=active is the safest fallback since the
+// linked expense may not have the receipt's id.
 const { id } = Astro.params;
+return Astro.redirect(`/expenses/${id}`, 301);
 ---
-
-<Layout>
-  <div class="mb-4">
-    <a href="/receipts" class="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200">&larr; Back to Receipts</a>
-  </div>
-  <h1 class="text-2xl font-bold text-white mb-6">Review Receipt</h1>
-  <ReceiptReview receiptId={id!} client:load />
-</Layout>
