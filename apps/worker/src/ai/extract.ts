@@ -7,7 +7,6 @@ export type ExtractedData = {
   currency: string | null;
   date: string | null;
   category: string | null;
-  confidence: number | null;
 };
 
 const EXTRACTION_PROMPT = `You are a receipt parser. Given the OCR text from a receipt, extract the following fields as JSON:
@@ -20,8 +19,7 @@ const EXTRACTION_PROMPT = `You are a receipt parser. Given the OCR text from a r
   "tip": tip amount as a number or null,
   "currency": "USD" or other 3-letter code,
   "date": "YYYY-MM-DD" format or null,
-  "category": best guess from these categories: "Food & Dining", "Groceries", "Transportation", "Shopping", "Entertainment", "Healthcare", "Utilities", "Housing", "Insurance", "Education", "Personal Care", "Travel", "Subscriptions", "Gifts & Donations", "Automotive", "Home & Garden", "Pets", "Office & Business", "Taxes & Fees", "Other",
-  "confidence": your confidence in the extraction from 0.0 to 1.0
+  "category": best guess from these categories: "Food & Dining", "Groceries", "Transportation", "Shopping", "Entertainment", "Healthcare", "Utilities", "Housing", "Insurance", "Education", "Personal Care", "Travel", "Subscriptions", "Gifts & Donations", "Automotive", "Home & Garden", "Pets", "Office & Business", "Taxes & Fees", "Other"
 }
 
 Rules:
@@ -73,7 +71,6 @@ export async function extractStructuredData(
     currency: typeof parsed.currency === "string" ? parsed.currency : null,
     date: typeof parsed.date === "string" ? parsed.date : null,
     category: typeof parsed.category === "string" ? parsed.category : null,
-    confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
   };
 }
 
@@ -106,12 +103,6 @@ function normalizeMerchant(merchant: string | null): string | null {
     );
 }
 
-/** Clamp confidence to 0-1 range */
-function normalizeConfidence(conf: number | null): number | null {
-  if (conf === null) return null;
-  return Math.max(0, Math.min(1, conf));
-}
-
 export function normalizeExtractedData(data: ExtractedData) {
   return {
     merchant: normalizeMerchant(data.merchant),
@@ -122,6 +113,5 @@ export function normalizeExtractedData(data: ExtractedData) {
     currency: data.currency?.toUpperCase().slice(0, 3) || "USD",
     purchaseDate: normalizeDate(data.date),
     suggestedCategory: data.category,
-    confidenceScore: normalizeConfidence(data.confidence),
   };
 }
