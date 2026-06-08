@@ -270,7 +270,7 @@ export function ExpenseReview({ expenseId }: Props) {
 
   const handleFinalize = async () => {
     if (!merchant || !total || !date) {
-      toast.error("Merchant, amount, and date are required to finalize");
+      toast.error("Merchant, amount, and date are required to approve");
       return;
     }
     setSaving(true);
@@ -288,14 +288,14 @@ export function ExpenseReview({ expenseId }: Props) {
         }),
       });
       if (res.ok) {
-        toast.success("Expense finalized.");
+        toast.success("Expense approved.");
         await fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Finalize failed");
+        toast.error(data.error || "Approve failed");
       }
     } catch {
-      toast.error("Finalize failed");
+      toast.error("Approve failed");
     } finally {
       setSaving(false);
     }
@@ -341,14 +341,14 @@ export function ExpenseReview({ expenseId }: Props) {
         method: "POST",
       });
       if (res.ok) {
-        toast.success("Reprocessing started");
+        toast.success("Retrying...");
         await fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Reprocess failed");
+        toast.error(data.error || "Retry failed");
       }
     } catch {
-      toast.error("Reprocess failed");
+      toast.error("Retry failed");
     } finally {
       setReprocessing(false);
     }
@@ -611,7 +611,7 @@ export function ExpenseReview({ expenseId }: Props) {
               disabled={saving}
               className="w-full sm:w-auto"
             >
-              {saving ? "Finalizing..." : "Finalize"}
+              {saving ? "Approving..." : "Approve"}
             </Button>
           )}
           {isActive && (
@@ -624,13 +624,13 @@ export function ExpenseReview({ expenseId }: Props) {
               {saving ? "Saving..." : "Save"}
             </Button>
           )}
-          {(isFailed || isNeedsReview) && hasImage && (
+          {isFailed && hasImage && (
             <Button
               variant="outline"
               onClick={handleReprocess}
               disabled={reprocessing}
             >
-              {reprocessing ? "Starting..." : "Reprocess"}
+              {reprocessing ? "Retrying..." : "Retry"}
             </Button>
           )}
           {isActive && (

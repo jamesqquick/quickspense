@@ -7,11 +7,11 @@ import { NotFoundError, InvalidStateTransitionError } from "../errors.js";
 
 // Allowed status transitions. Manual expenses are born `active`. Image-uploaded
 // expenses pass through processing -> needs_review -> active. `failed` is a
-// terminal-ish state from which the user can reprocess (back to processing).
+// terminal-ish state from which the user can retry (back to processing).
 const VALID_TRANSITIONS: Record<ExpenseStatus, ExpenseStatus[]> = {
   active: [],
   processing: ["needs_review", "failed"],
-  needs_review: ["processing", "active"],
+  needs_review: ["active"],
   failed: ["processing"],
 };
 
