@@ -33,9 +33,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const env = context.locals.runtime.env;
   const db = createDb(env.DB);
-  // Use the actual request origin as baseURL so OAuth callbacks redirect to
-  // the right host (localhost in dev, quickspense.com in prod).
-  const baseURL = context.url.origin;
+  // BETTER_AUTH_URL must be set per-environment:
+  //   - .dev.vars: http://localhost:4321
+  //   - wrangler.jsonc / secrets: https://quickspense.com
+  // Falls back to request origin if unset.
+  const baseURL = env.BETTER_AUTH_URL || context.url.origin;
 
   // Build the email sender from the Cloudflare EMAIL binding (if available).
   // Under `astro dev` the EMAIL binding is undefined; password reset emails
