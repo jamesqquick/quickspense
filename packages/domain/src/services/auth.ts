@@ -41,15 +41,6 @@ export function createAuth(db: Database, env: AuthEnv) {
       enabled: true,
       minPasswordLength: 8,
     },
-    user: {
-      modelName: "users",
-    },
-    session: {
-      modelName: "sessions",
-    },
-    account: {
-      modelName: "accounts",
-    },
     plugins: [
       apiKey({
         defaultPrefix: "qs_",
