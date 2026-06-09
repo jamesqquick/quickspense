@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { createAuth, createDb } from "@quickspense/domain";
 
-export const GET: APIRoute = async ({ locals }) => {
+export const GET: APIRoute = async ({ locals, request, url }) => {
   const user = locals.user;
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -11,13 +11,12 @@ export const GET: APIRoute = async ({ locals }) => {
   const db = createDb(env.DB);
   const auth = createAuth(db, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL || url.origin,
   });
 
   const result = await auth.api.listApiKeys({
-    headers: new Headers(),
+    headers: request.headers,
     query: {},
-    body: { userId: user.id },
   });
 
   return Response.json(
@@ -29,7 +28,7 @@ export const GET: APIRoute = async ({ locals }) => {
   );
 };
 
-export const POST: APIRoute = async ({ locals, request }) => {
+export const POST: APIRoute = async ({ locals, request, url }) => {
   const user = locals.user;
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -48,7 +47,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const db = createDb(env.DB);
   const auth = createAuth(db, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL || url.origin,
   });
 
   const result = await auth.api.createApiKey({

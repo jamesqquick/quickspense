@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { createAuth, createDb } from "@quickspense/domain";
 
-export const DELETE: APIRoute = async ({ locals, params, request }) => {
+export const DELETE: APIRoute = async ({ locals, params, request, url }) => {
   const user = locals.user;
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -16,7 +16,7 @@ export const DELETE: APIRoute = async ({ locals, params, request }) => {
   const db = createDb(env.DB);
   const auth = createAuth(db, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL || url.origin,
   });
 
   try {
