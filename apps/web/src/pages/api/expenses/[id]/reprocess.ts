@@ -3,7 +3,7 @@ import { expenses, createDb } from "@quickspense/domain";
 import { triggerExpenseWorkflow } from "../../../../lib/workflow";
 
 /**
- * Re-trigger AI parse on an expense currently in `needs_review` or `failed`.
+ * Re-trigger AI parse on a `failed` expense (retry).
  */
 export const POST: APIRoute = async ({ params, locals }) => {
   const user = locals.user!;
@@ -19,10 +19,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
     });
   }
 
-  if (!["needs_review", "failed"].includes(expense.status)) {
+  if (expense.status !== "failed") {
     return new Response(
       JSON.stringify({
-        error: `Cannot reprocess expense in '${expense.status}' state`,
+        error: `Cannot retry expense in '${expense.status}' state`,
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );

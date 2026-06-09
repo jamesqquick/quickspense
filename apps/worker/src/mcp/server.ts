@@ -172,7 +172,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
 
   server.tool(
     "finalize_expense",
-    "Confirm a `needs_review` expense and transition it to `active`",
+    "Approve a `needs_review` expense and transition it to `active`",
     {
       expenseId: z.string().describe("Expense ID"),
       merchant: z.string().describe("Merchant name"),
@@ -203,7 +203,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
 
   server.tool(
     "reprocess_expense",
-    "Trigger fresh AI processing on an expense in `needs_review` or `failed`",
+    "Retry AI processing on a `failed` expense",
     {
       expenseId: z.string().describe("Expense ID"),
     },
@@ -211,7 +211,7 @@ export function createServer(env: Env, db: Database, userId: string): McpServer 
       runTool(async () => {
         const expense = await expenses.getExpenseForUser(db, expenseId, userId);
         if (!expense) throw new NotFoundError("Expense", expenseId);
-        if (!["needs_review", "failed"].includes(expense.status)) {
+        if (expense.status !== "failed") {
           throw new InvalidStateTransitionError(expense.status, "processing");
         }
         if (!expense.file_key) {
