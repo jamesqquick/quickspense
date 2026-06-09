@@ -19,7 +19,7 @@
     "BETTER_AUTH_URL": "https://quickspense.com",
     // Non-secret client ID for Google OAuth. The client secret is set via
     // `wrangler secret put GOOGLE_CLIENT_SECRET`.
-    "GOOGLE_CLIENT_ID": ""
+    "GOOGLE_CLIENT_ID": "927972585369-ob2ms9ak3oiejm7hr06spehuu0lcaoe1.apps.googleusercontent.com"
   },
   "d1_databases": [
     {

@@ -59,6 +59,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     sendEmail,
     GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+    requestOrigin: context.url.origin,
   });
 
   // Attach auth instance to locals so API routes can reuse it
