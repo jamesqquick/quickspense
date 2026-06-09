@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import PageHeader from "../components/PageHeader.astro";
 import { DashboardSummary } from "../components/DashboardSummary";
 
 if (!Astro.locals.user) {
@@ -8,6 +9,19 @@ if (!Astro.locals.user) {
 ---
 
 <Layout>
-  <h1 class="text-2xl font-bold text-white mb-6">Dashboard</h1>
+  <PageHeader title="Dashboard">
+    <a
+      href="/expenses/new"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors duration-200 h-9 px-4 py-2 bg-accent-500 text-white hover:bg-accent-600"
+    >
+      + New Expense
+    </a>
+    <a
+      href="/expenses/upload"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors duration-200 h-9 px-4 py-2 border border-white/20 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+    >
+      Upload Receipts
+    </a>
+  </PageHeader>
   <DashboardSummary client:load />
 </Layout>
