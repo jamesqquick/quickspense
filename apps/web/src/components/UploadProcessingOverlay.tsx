@@ -65,6 +65,22 @@ export function UploadProcessingOverlay({
     pollTimers.current.clear();
   }, []);
 
+  const checkExpenseStatus = useCallback(
+    async (expenseId: string): Promise<string | null> => {
+      try {
+        const res = await fetch(`/api/expenses/${expenseId}`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.expense?.status ?? null;
+        }
+      } catch {
+        // Network error
+      }
+      return null;
+    },
+    [],
+  );
+
   const waitForProcessing = useCallback(
     (expenseId: string): Promise<boolean> => {
       return new Promise((resolve) => {
@@ -82,46 +98,67 @@ export function UploadProcessingOverlay({
           resolve(success);
         };
 
-        // Try WebSocket first
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/api/expenses/${expenseId}/ws`;
-        let wsConnected = false;
+        // Check if already complete before opening WS (handles fast workflows)
+        checkExpenseStatus(expenseId).then((status) => {
+          if (resolved) return;
+          if (status && TERMINAL_STATUSES.has(status)) {
+            done(status !== "failed");
+            return;
+          }
+          connectWebSocket();
+        });
 
-        try {
-          const ws = new WebSocket(wsUrl);
-          wsRefs.current.set(expenseId, ws);
+        function connectWebSocket() {
+          if (resolved) return;
 
-          ws.onopen = () => {
-            wsConnected = true;
-          };
+          const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          const wsUrl = `${protocol}//${window.location.host}/api/expenses/${expenseId}/ws`;
+          let wsConnected = false;
 
-          ws.onmessage = (event) => {
-            try {
-              const update: StatusUpdate = JSON.parse(event.data);
-              setProcessingDetail(update.detail);
-              if (TERMINAL_STATUSES.has(update.status)) {
-                done(update.status !== "failed");
+          try {
+            const ws = new WebSocket(wsUrl);
+            wsRefs.current.set(expenseId, ws);
+
+            ws.onopen = () => {
+              wsConnected = true;
+              // Re-check status after WS connects to catch the race where
+              // the workflow finished between the initial check and WS open
+              checkExpenseStatus(expenseId).then((status) => {
+                if (resolved) return;
+                if (status && TERMINAL_STATUSES.has(status)) {
+                  done(status !== "failed");
+                }
+              });
+            };
+
+            ws.onmessage = (event) => {
+              try {
+                const update: StatusUpdate = JSON.parse(event.data);
+                setProcessingDetail(update.detail);
+                if (TERMINAL_STATUSES.has(update.status)) {
+                  done(update.status !== "failed");
+                }
+              } catch {
+                // Ignore non-JSON messages
               }
-            } catch {
-              // Ignore non-JSON messages
-            }
-          };
+            };
 
-          ws.onclose = () => {
-            wsRefs.current.delete(expenseId);
-            if (!resolved && !wsConnected) {
-              startPolling();
-            }
-          };
+            ws.onclose = () => {
+              wsRefs.current.delete(expenseId);
+              if (!resolved && !wsConnected) {
+                startPolling();
+              }
+            };
 
-          ws.onerror = () => {
-            wsRefs.current.delete(expenseId);
-            if (!resolved) {
-              startPolling();
-            }
-          };
-        } catch {
-          startPolling();
+            ws.onerror = () => {
+              wsRefs.current.delete(expenseId);
+              if (!resolved) {
+                startPolling();
+              }
+            };
+          } catch {
+            startPolling();
+          }
         }
 
         // Polling fallback
@@ -136,18 +173,11 @@ export function UploadProcessingOverlay({
               return;
             }
 
-            try {
-              const res = await fetch(`/api/expenses/${expenseId}`);
-              if (res.ok) {
-                const data = await res.json();
-                const status = data.expense?.status;
-                if (status && TERMINAL_STATUSES.has(status)) {
-                  done(status !== "failed");
-                  return;
-                }
-              }
-            } catch {
-              // Network error — keep polling
+            const status = await checkExpenseStatus(expenseId);
+            if (resolved) return;
+            if (status && TERMINAL_STATUSES.has(status)) {
+              done(status !== "failed");
+              return;
             }
 
             const delay = POLL_DELAYS[Math.min(attempt, POLL_DELAYS.length - 1)];
@@ -160,7 +190,7 @@ export function UploadProcessingOverlay({
         }
       });
     },
-    [],
+    [checkExpenseStatus],
   );
 
   useEffect(() => {
@@ -175,7 +205,7 @@ export function UploadProcessingOverlay({
       // Phase 1: Upload all files
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        setStage({ type: "uploading", current: i + 1, total });
+        setStage({ type: "uploading", current: i, total });
         setProcessingDetail(null);
 
         const form = new FormData();
@@ -193,6 +223,7 @@ export function UploadProcessingOverlay({
         } catch {
           failedCount += 1;
         }
+        setStage({ type: "uploading", current: i + 1, total });
       }
 
       if (successIds.length === 0) {
@@ -203,18 +234,21 @@ export function UploadProcessingOverlay({
       }
 
       // Phase 2: Wait for AI processing
-      let processedCount = 0;
       const processingTotal = successIds.length;
 
       for (let i = 0; i < successIds.length; i++) {
         setStage({
           type: "processing",
-          current: i + 1,
+          current: i,
           total: processingTotal,
         });
 
         await waitForProcessing(successIds[i]);
-        processedCount += 1;
+        setStage({
+          type: "processing",
+          current: i + 1,
+          total: processingTotal,
+        });
       }
 
       // Phase 3: Done
