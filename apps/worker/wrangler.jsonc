@@ -4,7 +4,9 @@
   "compatibility_date": "2025-04-21",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-
+  "vars": {
+    "BETTER_AUTH_URL": "https://quickspense.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",

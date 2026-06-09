@@ -15,7 +15,8 @@
     "STRIPE_PUBLISHABLE_KEY": "",
     // Read by lib/stripe.ts to authorize use of `sk_live_...` keys. Only the
     // production-deployed worker should have this set to "production".
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "BETTER_AUTH_URL": "https://quickspense.com"
   },
   "d1_databases": [
     {
