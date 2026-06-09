@@ -34,10 +34,33 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const env = context.locals.runtime.env;
   const db = createDb(env.DB);
   const baseURL = env.BETTER_AUTH_URL || context.url.origin;
+
+  // Build the email sender from the Cloudflare EMAIL binding (if available).
+  // Under `astro dev` the EMAIL binding is undefined; password reset emails
+  // will be skipped but the flow won't crash.
+  const emailBinding = env.EMAIL;
+  const sendEmail = emailBinding
+    ? async (to: string, subject: string, html: string) => {
+        await emailBinding.send({
+          to,
+          from: {
+            email: env.EMAIL_FROM_ADDRESS,
+            name: env.EMAIL_FROM_NAME,
+          },
+          subject,
+          html,
+        });
+      }
+    : undefined;
+
   const auth = createAuth(db, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: baseURL,
+    sendEmail,
   });
+
+  // Attach auth instance to locals so API routes can reuse it
+  context.locals.auth = auth;
 
   // Validate session via Better Auth
   try {

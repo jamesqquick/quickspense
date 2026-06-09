@@ -88,12 +88,21 @@ export default {
 
       const auth = createAuth(db, {
         BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-        BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+        BETTER_AUTH_URL: env.BETTER_AUTH_URL || url.origin,
       });
 
-      const result = await auth.api.verifyApiKey({
-        body: { key: rawToken },
-      });
+      let result;
+      try {
+        result = await auth.api.verifyApiKey({
+          body: { key: rawToken },
+        });
+      } catch (e) {
+        logger.warn("API key verification failed", { error: e });
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
       if (!result.valid || !result.key) {
         logger.warn("MCP request unauthorized");
@@ -104,6 +113,14 @@ export default {
       }
 
       const userId = result.key.referenceId;
+      if (!userId) {
+        logger.warn("MCP API key has no referenceId");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       logger.info("MCP request authorized", { userId });
 
       const server = createServer(env, db, userId);

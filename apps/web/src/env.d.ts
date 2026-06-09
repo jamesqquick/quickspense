@@ -56,6 +56,8 @@ declare namespace App {
       token: string;
       expiresAt: Date;
     };
+    /** Per-request Better Auth instance created in middleware. */
+    auth: import("@quickspense/domain").Auth;
     requestId: string;
     logger: Logger;
   }

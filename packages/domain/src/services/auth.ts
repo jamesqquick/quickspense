@@ -3,8 +3,14 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { apiKey } from "@better-auth/api-key";
 import { eq, and, isNotNull } from "drizzle-orm";
 import type { Database } from "../db/index.js";
-import { users, expenses } from "../db/schema.js";
-import * as schema from "../db/schema.js";
+import {
+  users,
+  sessions,
+  accounts,
+  verifications,
+  apikeys,
+  expenses,
+} from "../db/schema.js";
 import { NotFoundError } from "../errors.js";
 
 /**
@@ -14,6 +20,8 @@ import { NotFoundError } from "../errors.js";
 export type AuthEnv = {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  /** Optional email sender — required for password reset to work. */
+  sendEmail?: (to: string, subject: string, html: string) => Promise<void>;
 };
 
 /**
@@ -26,12 +34,11 @@ export function createAuth(db: Database, env: AuthEnv) {
       provider: "sqlite",
       usePlural: true,
       schema: {
-        ...schema,
-        user: schema.users,
-        session: schema.sessions,
-        account: schema.accounts,
-        verification: schema.verifications,
-        apikey: schema.apikeys,
+        user: users,
+        session: sessions,
+        account: accounts,
+        verification: verifications,
+        apikey: apikeys,
       },
     }),
     baseURL: env.BETTER_AUTH_URL,
@@ -40,6 +47,15 @@ export function createAuth(db: Database, env: AuthEnv) {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
+      sendResetPassword: env.sendEmail
+        ? async ({ user, url }) => {
+            await env.sendEmail!(
+              user.email,
+              "Reset your Quickspense password",
+              `<p>Hi ${user.name},</p><p>Click the link below to reset your password:</p><p><a href="${url}">${url}</a></p><p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>`,
+            );
+          }
+        : undefined,
     },
     plugins: [
       apiKey({
@@ -59,8 +75,7 @@ export type Auth = ReturnType<typeof createAuth>;
 
 /**
  * Delete a user and return R2 file keys that need cleanup.
- * This is the only custom auth operation we keep — Better Auth doesn't
- * provide a "delete user + collect associated resources" flow.
+ * Also cleans up API keys which lack a FK to users.
  */
 export async function deleteUser(
   db: Database,
@@ -73,6 +88,9 @@ export async function deleteUser(
   const fileKeys = rows
     .map((r) => r.file_key)
     .filter((k): k is string => k !== null);
+
+  // Delete orphan-prone apikeys (no FK to users)
+  await db.delete(apikeys).where(eq(apikeys.referenceId, userId));
 
   const result = await db.delete(users).where(eq(users.id, userId));
 
