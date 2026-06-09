@@ -1,39 +1,53 @@
 import type { APIRoute } from "astro";
-import { auth, createApiTokenSchema, createDb } from "@quickspense/domain";
 
-export const GET: APIRoute = async ({ locals }) => {
-  const user = locals.user!;
-  const db = createDb(locals.runtime.env.DB);
-  const tokens = await auth.listApiTokens(db, user.id);
-  return new Response(JSON.stringify(tokens), {
-    headers: { "Content-Type": "application/json" },
+export const GET: APIRoute = async ({ locals, request }) => {
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  const result = await locals.auth.api.listApiKeys({
+    headers: request.headers,
+    query: {},
   });
+
+  return Response.json(
+    (result.apiKeys ?? []).map((k) => ({
+      id: k.id,
+      name: k.name ?? "Untitled",
+      created_at: k.createdAt instanceof Date ? k.createdAt.toISOString() : k.createdAt,
+    })),
+  );
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ locals, request }) => {
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  let body;
   try {
-    const user = locals.user!;
-    const db = createDb(locals.runtime.env.DB);
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
+  }
 
-    const body = await request.json();
-    const parsed = createApiTokenSchema.safeParse(body);
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({ error: parsed.error.issues[0].message }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    const result = await auth.createApiToken(db, user.id, parsed.data.name);
-    return new Response(JSON.stringify(result), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (e: unknown) {
-    console.error("Create token error:", e);
+  const name = body?.name;
+  if (!name || typeof name !== "string" || name.length < 1 || name.length > 100) {
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({ error: "Token name is required (1-100 chars)" }),
+      { status: 400 },
     );
   }
+
+  const result = await locals.auth.api.createApiKey({
+    body: {
+      name,
+      prefix: "qs_",
+      userId: user.id,
+    },
+  });
+
+  return Response.json({ token: result.key, tokenId: result.id });
 };

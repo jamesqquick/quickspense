@@ -7,6 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { authClient } from "@/lib/auth-client";
 
 function getInitials(email: string): string {
   const local = email.split("@")[0] ?? "";
@@ -20,6 +21,11 @@ function getInitials(email: string): string {
 
 export function ProfileDropdown({ email }: { email: string }) {
   const initials = getInitials(email);
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    window.location.href = "/login";
+  };
 
   return (
     <DropdownMenu>
@@ -37,22 +43,13 @@ export function ProfileDropdown({ email }: { email: string }) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => {
-            document.getElementById("profile-logout-form")?.requestSubmit();
-          }}
+          onSelect={handleLogout}
           className="text-red-400 focus:text-red-300"
         >
           <LogOut className="size-4" />
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
-      {/* Hidden form for logout POST */}
-      <form
-        id="profile-logout-form"
-        method="POST"
-        action="/api/auth/logout"
-        className="hidden"
-      />
     </DropdownMenu>
   );
 }

@@ -1,27 +1,24 @@
 import type { APIRoute } from "astro";
-import { auth, createDb } from "@quickspense/domain";
 
-export const DELETE: APIRoute = async ({ params, locals }) => {
+export const DELETE: APIRoute = async ({ locals, params, request }) => {
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  const tokenId = params.id;
+  if (!tokenId) {
+    return new Response(JSON.stringify({ error: "Token ID required" }), { status: 400 });
+  }
+
   try {
-    const user = locals.user!;
-    const db = createDb(locals.runtime.env.DB);
-    const tokenId = params.id!;
-
-    await auth.deleteApiToken(db, tokenId, user.id);
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { "Content-Type": "application/json" },
+    await locals.auth.api.deleteApiKey({
+      body: { keyId: tokenId },
+      headers: request.headers,
     });
-  } catch (e: unknown) {
-    if (e instanceof Error && e.name === "NotFoundError") {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    console.error("Delete token error:", e);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(null, { status: 204 });
+  } catch (e) {
+    locals.logger.error("Failed to delete API key", { tokenId, error: e });
+    return new Response(JSON.stringify({ error: "Failed to delete token" }), { status: 500 });
   }
 };

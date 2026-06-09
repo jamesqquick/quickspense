@@ -63,12 +63,10 @@ const currentPath = Astro.url.pathname;
               </span>
               <span class="text-sm text-slate-400 truncate">{user.email}</span>
             </div>
-            <form method="POST" action="/api/auth/logout">
-              <button type="submit" class="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 cursor-pointer py-2">
-                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                Log out
-              </button>
-            </form>
+            <button type="button" id="mobile-logout-btn" class="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 cursor-pointer py-2">
+              <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+              Log out
+            </button>
           </div>
         </div>
       </nav>
@@ -141,6 +139,16 @@ const currentPath = Astro.url.pathname;
           link.addEventListener("click", () => {
             if (!menu.classList.contains("hidden")) toggleMenu();
           });
+        });
+      }
+
+      // Mobile logout button
+      const mobileLogoutBtn = document.getElementById("mobile-logout-btn");
+      if (mobileLogoutBtn) {
+        mobileLogoutBtn.addEventListener("click", async () => {
+          const { authClient } = await import("@/lib/auth-client");
+          await authClient.signOut();
+          window.location.href = "/login";
         });
       }
     </script>

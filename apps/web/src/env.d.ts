@@ -40,6 +40,8 @@ type Runtime = import("@astrojs/cloudflare").Runtime<{
   ENVIRONMENT?: string;
   /** Local override to allow `sk_live_...` outside production. Use sparingly. */
   STRIPE_ALLOW_LIVE_KEY?: string;
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_URL: string;
 }>;
 
 declare namespace App {
@@ -47,7 +49,15 @@ declare namespace App {
     user?: {
       id: string;
       email: string;
+      name: string;
     };
+    session?: {
+      id: string;
+      token: string;
+      expiresAt: Date;
+    };
+    /** Per-request Better Auth instance created in middleware. */
+    auth: import("@quickspense/domain").Auth;
     requestId: string;
     logger: Logger;
   }

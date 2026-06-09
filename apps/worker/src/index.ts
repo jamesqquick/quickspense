@@ -1,5 +1,5 @@
 import { createMcpHandler } from "agents/mcp";
-import { createDb, createLogger, newRequestId, auth } from "@quickspense/domain";
+import { createDb, createLogger, newRequestId, createAuth } from "@quickspense/domain";
 import { createServer } from "./mcp/server.js";
 import type { ExpenseStatusDO } from "./expense-status.js";
 
@@ -12,6 +12,8 @@ export interface Env {
   AI: Ai;
   EXPENSE_WORKFLOW: Workflow;
   EXPENSE_STATUS_DO: DurableObjectNamespace<ExpenseStatusDO>;
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_URL: string;
 }
 
 export default {
@@ -83,8 +85,26 @@ export default {
       }
 
       const rawToken = authHeader.slice(7);
-      const result = await auth.validateApiToken(db, rawToken);
-      if (!result) {
+
+      const auth = createAuth(db, {
+        BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+        BETTER_AUTH_URL: env.BETTER_AUTH_URL || url.origin,
+      });
+
+      let result;
+      try {
+        result = await auth.api.verifyApiKey({
+          body: { key: rawToken },
+        });
+      } catch (e) {
+        logger.warn("API key verification failed", { error: e });
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (!result.valid || !result.key) {
         logger.warn("MCP request unauthorized");
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -92,9 +112,18 @@ export default {
         });
       }
 
-      logger.info("MCP request authorized", { userId: result.user.id });
+      const userId = result.key.referenceId;
+      if (!userId) {
+        logger.warn("MCP API key has no referenceId");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
-      const server = createServer(env, db, result.user.id);
+      logger.info("MCP request authorized", { userId });
+
+      const server = createServer(env, db, userId);
       const handler = createMcpHandler(server, { endpoint: "/mcp" });
       return handler(request, env, ctx);
     }

@@ -10,27 +10,134 @@ import {
 import { sql, relations } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// Users
+// Users (Better Auth core)
 // ---------------------------------------------------------------------------
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  password_hash: text("password_hash").notNull(),
-  created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+  emailVerified: integer("email_verified", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  image: text("image"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const usersRelations = relations(users, ({ one, many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   sessions: many(sessions),
-  apiTokens: many(apiTokens),
+  accounts: many(accounts),
   categories: many(categories),
   expenses: many(expenses),
   invoices: many(invoices),
-  passwordResetTokens: many(passwordResetTokens),
   businessProfile: one(businessProfiles, {
     fields: [users.id],
     references: [businessProfiles.user_id],
   }),
 }));
+
+// ---------------------------------------------------------------------------
+// Sessions (Better Auth core)
+// ---------------------------------------------------------------------------
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("idx_sessions_user_id").on(table.userId),
+    index("idx_sessions_token").on(table.token),
+  ],
+);
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+// ---------------------------------------------------------------------------
+// Accounts (Better Auth core — for OAuth / credential providers)
+// ---------------------------------------------------------------------------
+export const accounts = sqliteTable(
+  "accounts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp" }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp" }),
+    scope: text("scope"),
+    idToken: text("id_token"),
+    password: text("password"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("idx_accounts_user_id").on(table.userId)],
+);
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}));
+
+// ---------------------------------------------------------------------------
+// Verifications (Better Auth core — email verification, password reset tokens)
+// ---------------------------------------------------------------------------
+export const verifications = sqliteTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// API Keys (Better Auth API Key plugin)
+// ---------------------------------------------------------------------------
+export const apikeys = sqliteTable(
+  "apikeys",
+  {
+    id: text("id").primaryKey(),
+    configId: text("config_id").notNull().default("default"),
+    name: text("name"),
+    start: text("start"),
+    prefix: text("prefix"),
+    key: text("key").notNull(),
+    referenceId: text("reference_id").notNull(),
+    refillInterval: integer("refill_interval"),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: integer("last_refill_at", { mode: "timestamp" }),
+    enabled: integer("enabled", { mode: "boolean" }).default(true),
+    rateLimitEnabled: integer("rate_limit_enabled", { mode: "boolean" }),
+    rateLimitTimeWindow: integer("rate_limit_time_window"),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count"),
+    remaining: integer("remaining"),
+    lastRequest: integer("last_request", { mode: "timestamp" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+    permissions: text("permissions"),
+    metadata: text("metadata"),
+  },
+  (table) => [
+    index("idx_apikeys_key").on(table.key),
+    index("idx_apikeys_reference_id").on(table.referenceId),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // Business Profiles (1:1 with users)
@@ -58,47 +165,6 @@ export const businessProfilesRelations = relations(
 );
 
 // ---------------------------------------------------------------------------
-// Sessions
-// ---------------------------------------------------------------------------
-export const sessions = sqliteTable(
-  "sessions",
-  {
-    id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    expires_at: text("expires_at").notNull(),
-    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [index("idx_sessions_expires").on(table.expires_at)],
-);
-
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, { fields: [sessions.user_id], references: [users.id] }),
-}));
-
-// ---------------------------------------------------------------------------
-// API Tokens
-// ---------------------------------------------------------------------------
-export const apiTokens = sqliteTable(
-  "api_tokens",
-  {
-    id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    token_hash: text("token_hash").notNull().unique(),
-    name: text("name").notNull(),
-    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [index("idx_api_tokens_hash").on(table.token_hash)],
-);
-
-export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
-  user: one(users, { fields: [apiTokens.user_id], references: [users.id] }),
-}));
-
-// ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
 export const categories = sqliteTable(
@@ -124,12 +190,6 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 // ---------------------------------------------------------------------------
 // Expenses
 // ---------------------------------------------------------------------------
-// Unified expenses table — replaces the previous receipts + expenses split.
-// An expense can be created manually (status='active' immediately) or by
-// uploading a receipt image (status='processing' -> 'needs_review' -> 'active').
-// merchant/amount/expense_date are nullable because rows in `processing`/`failed`
-// haven't been parsed yet. Application code enforces these are set when status
-// reaches `needs_review` or `active`.
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -173,10 +233,6 @@ export const expensesRelations = relations(expenses, ({ one, many }) => ({
 // ---------------------------------------------------------------------------
 // Parsed Expenses
 // ---------------------------------------------------------------------------
-// Append-only parse history for expenses created from receipt images.
-// Latest row (by created_at) wins. Rows live only while an expense is in
-// `processing` or `needs_review`; after finalize the user-confirmed values
-// live on the expense itself.
 export const parsedExpenses = sqliteTable(
   "parsed_expenses",
   {
@@ -277,34 +333,3 @@ export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) =
     references: [invoices.id],
   }),
 }));
-
-// ---------------------------------------------------------------------------
-// Password Reset Tokens
-// ---------------------------------------------------------------------------
-export const passwordResetTokens = sqliteTable(
-  "password_reset_tokens",
-  {
-    id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    token_hash: text("token_hash").notNull().unique(),
-    expires_at: text("expires_at").notNull(),
-    used_at: text("used_at"),
-    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [
-    index("idx_password_reset_tokens_hash").on(table.token_hash),
-    index("idx_password_reset_tokens_user").on(table.user_id),
-  ],
-);
-
-export const passwordResetTokensRelations = relations(
-  passwordResetTokens,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [passwordResetTokens.user_id],
-      references: [users.id],
-    }),
-  }),
-);
