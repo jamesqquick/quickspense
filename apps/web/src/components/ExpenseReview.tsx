@@ -399,17 +399,23 @@ export function ExpenseReview({ expenseId }: Props) {
       )}
 
       <div className="space-y-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Badge
-            variant={STATUS_BADGE_VARIANT[expense.status]}
-            className="px-3 py-1 text-sm"
-          >
-            {STATUS_LABEL[expense.status]}
-          </Badge>
-          {expense.error_message && (
-            <span className="text-sm text-red-400">{expense.error_message}</span>
-          )}
-        </div>
+        {(expense.status !== "active" || expense.error_message) && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {expense.status !== "active" && (
+              <Badge
+                variant={STATUS_BADGE_VARIANT[expense.status]}
+                className="px-3 py-1 text-sm"
+              >
+                {STATUS_LABEL[expense.status]}
+              </Badge>
+            )}
+            {expense.error_message && (
+              <span className="text-sm text-red-400">
+                {expense.error_message}
+              </span>
+            )}
+          </div>
+        )}
 
         {isProcessing ? (
           <div className="text-center py-8">
