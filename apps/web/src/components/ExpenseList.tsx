@@ -227,12 +227,6 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <Button asChild>
-          <a href="/expenses/new">+ New Expense</a>
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="/expenses/upload">Upload Receipts</a>
-        </Button>
         <Button variant="outline" asChild>
           <a href={exportHref}>Export CSV</a>
         </Button>
