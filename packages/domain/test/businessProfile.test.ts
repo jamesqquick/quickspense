@@ -6,7 +6,8 @@ import * as businessProfiles from "../src/services/businessProfile.js";
 
 async function createTestUser(db: ReturnType<typeof createDb>, email: string) {
   const id = crypto.randomUUID();
-  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: false });
+  const now = new Date();
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: false, createdAt: now, updatedAt: now });
   return { id, email };
 }
 
@@ -17,8 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   email_verified INTEGER NOT NULL DEFAULT 0,
   image TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS business_profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

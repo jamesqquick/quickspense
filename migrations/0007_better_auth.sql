@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS users;
 
 -- ---------------------------------------------------------------------------
 -- Better Auth core tables
+-- Date columns use INTEGER (unix timestamps) for Better Auth compatibility.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE users (
@@ -28,19 +29,19 @@ CREATE TABLE users (
   email TEXT NOT NULL UNIQUE,
   email_verified INTEGER NOT NULL DEFAULT 0,
   image TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY NOT NULL,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
-  expires_at TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
   ip_address TEXT,
   user_agent TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_token ON sessions(token);
@@ -52,13 +53,13 @@ CREATE TABLE accounts (
   provider_id TEXT NOT NULL,
   access_token TEXT,
   refresh_token TEXT,
-  access_token_expires_at TEXT,
-  refresh_token_expires_at TEXT,
+  access_token_expires_at INTEGER,
+  refresh_token_expires_at INTEGER,
   scope TEXT,
   id_token TEXT,
   password TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 CREATE INDEX idx_accounts_user_id ON accounts(user_id);
 
@@ -66,9 +67,9 @@ CREATE TABLE verifications (
   id TEXT PRIMARY KEY NOT NULL,
   identifier TEXT NOT NULL,
   value TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 
 -- ---------------------------------------------------------------------------
@@ -85,17 +86,17 @@ CREATE TABLE apikeys (
   reference_id TEXT NOT NULL,
   refill_interval INTEGER,
   refill_amount INTEGER,
-  last_refill_at TEXT,
+  last_refill_at INTEGER,
   enabled INTEGER DEFAULT 1,
   rate_limit_enabled INTEGER,
   rate_limit_time_window INTEGER,
   rate_limit_max INTEGER,
   request_count INTEGER,
   remaining INTEGER,
-  last_request TEXT,
-  expires_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_request INTEGER,
+  expires_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
   permissions TEXT,
   metadata TEXT
 );
