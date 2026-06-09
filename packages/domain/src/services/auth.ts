@@ -22,6 +22,9 @@ export type AuthEnv = {
   BETTER_AUTH_URL: string;
   /** Optional email sender — required for password reset to work. */
   sendEmail?: (to: string, subject: string, html: string) => Promise<void>;
+  /** Google OAuth credentials — optional; omit to disable Google login. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 };
 
 /**
@@ -34,16 +37,25 @@ export function createAuth(db: Database, env: AuthEnv) {
       provider: "sqlite",
       usePlural: true,
       schema: {
-        user: users,
-        session: sessions,
-        account: accounts,
-        verification: verifications,
-        apikey: apikeys,
+        users,
+        sessions,
+        accounts,
+        verifications,
+        apikeys,
       },
     }),
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [env.BETTER_AUTH_URL],
+    socialProviders: {
+      ...(env.GOOGLE_CLIENT_ID &&
+        env.GOOGLE_CLIENT_SECRET && {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+          },
+        }),
+    },
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,

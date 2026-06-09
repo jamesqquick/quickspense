@@ -28,3 +28,11 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Generate a strong random secret: `openssl rand -base64 32`
 BETTER_AUTH_SECRET=change-me-to-a-random-secret
 BETTER_AUTH_URL=http://localhost:4321
+
+# Google OAuth — optional; omit to disable "Sign in with Google".
+# Create an OAuth 2.0 Client ID (Web application) in the Google Cloud Console.
+# Authorized redirect URIs:
+#   Dev:  http://localhost:4321/api/auth/callback/google
+#   Prod: https://quickspense.com/api/auth/callback/google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

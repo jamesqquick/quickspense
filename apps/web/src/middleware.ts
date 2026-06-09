@@ -33,6 +33,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const env = context.locals.runtime.env;
   const db = createDb(env.DB);
+  // BETTER_AUTH_URL must be set per-environment:
+  //   - .dev.vars: http://localhost:4321
+  //   - wrangler.jsonc / secrets: https://quickspense.com
+  // Falls back to request origin if unset.
   const baseURL = env.BETTER_AUTH_URL || context.url.origin;
 
   // Build the email sender from the Cloudflare EMAIL binding (if available).
@@ -57,6 +61,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: baseURL,
     sendEmail,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
   });
 
   // Attach auth instance to locals so API routes can reuse it
