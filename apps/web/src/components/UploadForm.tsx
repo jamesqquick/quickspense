@@ -2,23 +2,15 @@ import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Upload, X, Check, AlertTriangle } from "lucide-react";
+import { Camera, Upload, X } from "lucide-react";
+import {
+  UploadProcessingOverlay,
+  type FileItem,
+} from "./UploadProcessingOverlay";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
-
-type UploadStatus = "pending" | "uploading" | "success" | "failed";
-
-type FileItem = {
-  id: string;
-  file: File;
-  preview: string;
-  status: UploadStatus;
-  /** Set when status === "success". The expense id returned by the API. */
-  expenseId?: string;
-  error?: string;
-};
 
 function validateFile(f: File): string | null {
   if (!ALLOWED_TYPES.includes(f.type)) {
@@ -39,15 +31,14 @@ function formatSize(bytes: number): string {
 export function UploadForm() {
   const [items, setItems] = useState<FileItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [batchComplete, setBatchComplete] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayItems, setOverlayItems] = useState<FileItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback(
     (files: File[]) => {
-      if (isUploading) return;
-      setBatchComplete(false);
+      if (overlayOpen) return;
 
       setItems((prev) => {
         const remainingSlots = MAX_FILE_COUNT - prev.length;
@@ -84,131 +75,58 @@ export function UploadForm() {
         return [...prev, ...accepted];
       });
     },
-    [isUploading],
+    [overlayOpen],
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      if (isUploading) return;
+      if (overlayOpen) return;
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) addFiles(files);
     },
-    [addFiles, isUploading],
+    [addFiles, overlayOpen],
   );
 
   const removeItem = useCallback(
     (id: string) => {
-      if (isUploading) return;
+      if (overlayOpen) return;
       setItems((prev) => {
         const target = prev.find((i) => i.id === id);
         if (target) URL.revokeObjectURL(target.preview);
         return prev.filter((i) => i.id !== id);
       });
     },
-    [isUploading],
+    [overlayOpen],
   );
 
-  const uploadOne = useCallback(async (item: FileItem): Promise<boolean> => {
-    const form = new FormData();
-    form.append("file", item.file);
-    form.append("parse", "true");
-
-    try {
-      const res = await fetch("/api/expenses", { method: "POST", body: form });
-      if (res.ok) {
-        const expense = (await res.json()) as { id: string };
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === item.id
-              ? { ...i, status: "success", expenseId: expense.id }
-              : i,
-          ),
-        );
-        return true;
-      }
-      const data = await res.json().catch(() => ({}));
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id
-            ? { ...i, status: "failed", error: data.error || "Upload failed" }
-            : i,
-        ),
-      );
-      return false;
-    } catch {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id
-            ? { ...i, status: "failed", error: "Upload failed" }
-            : i,
-        ),
-      );
-      return false;
-    }
-  }, []);
-
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const pending = items.filter((i) => i.status === "pending");
     if (pending.length === 0) return;
 
-    setIsUploading(true);
-    setBatchComplete(false);
-
-    let successes = 0;
-    let failures = 0;
-    for (const item of pending) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, status: "uploading" } : i)),
-      );
-      const ok = await uploadOne(item);
-      if (ok) successes += 1;
-      else failures += 1;
-    }
-
-    setIsUploading(false);
-    setBatchComplete(true);
-
-    if (successes > 0 && failures === 0) {
-      toast.success(`${successes} expense${successes === 1 ? "" : "s"} created`);
-    } else if (successes > 0 && failures > 0) {
-      toast.error(`${successes} uploaded, ${failures} failed`);
-    } else if (failures > 0) {
-      toast.error(`${failures} upload${failures === 1 ? "" : "s"} failed`);
-    }
+    setOverlayItems(pending);
+    setOverlayOpen(true);
   };
 
-  const handleRetry = async (id: string) => {
-    if (isUploading) return;
-    const target = items.find((i) => i.id === id);
-    if (!target || target.status !== "failed") return;
+  const handleOverlayComplete = useCallback((successIds: string[]) => {
+    if (successIds.length === 1) {
+      window.location.href = `/expenses/${successIds[0]}`;
+    } else if (successIds.length > 1) {
+      window.location.href = "/expenses?status=needs_review";
+    }
+  }, []);
 
-    setIsUploading(true);
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, status: "uploading", error: undefined } : i,
-      ),
-    );
-    const ok = await uploadOne(target);
-    setIsUploading(false);
-    if (ok) toast.success("Expense created");
-  };
+  const handleOverlayError = useCallback(() => {
+    setOverlayOpen(false);
+    setOverlayItems([]);
+  }, []);
 
   const totalSize = items.reduce((sum, i) => sum + i.file.size, 0);
-  const successItems = items.filter(
-    (i): i is FileItem & { expenseId: string } =>
-      i.status === "success" && !!i.expenseId,
-  );
-  const successCount = successItems.length;
-  const failedCount = items.filter((i) => i.status === "failed").length;
   const pendingCount = items.filter((i) => i.status === "pending").length;
   const hasItems = items.length > 0;
-  const canSubmit = !isUploading && pendingCount > 0;
-  const allSettled =
-    hasItems && items.every((i) => i.status === "success" || i.status === "failed");
-
-  const canAddFiles = !isUploading && items.length < MAX_FILE_COUNT;
+  const canSubmit = !overlayOpen && pendingCount > 0;
+  const canAddFiles = !overlayOpen && items.length < MAX_FILE_COUNT;
 
   return (
     <div className="space-y-4">
@@ -230,7 +148,7 @@ export function UploadForm() {
         accept="image/*"
         capture="environment"
         className="hidden"
-        disabled={isUploading}
+        disabled={overlayOpen}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           if (files.length > 0) addFiles(files);
@@ -242,7 +160,7 @@ export function UploadForm() {
       <div
         onDragOver={(e) => {
           e.preventDefault();
-          if (!isUploading) setDragOver(true);
+          if (!overlayOpen) setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
@@ -250,7 +168,7 @@ export function UploadForm() {
           if (canAddFiles) inputRef.current?.click();
         }}
         className={`border-2 border-dashed rounded-2xl p-6 sm:p-12 text-center transition-colors duration-200 ${
-          isUploading || items.length >= MAX_FILE_COUNT
+          overlayOpen || items.length >= MAX_FILE_COUNT
             ? "cursor-not-allowed opacity-60 border-white/20 bg-white/5"
             : dragOver
               ? "cursor-pointer border-primary-500 bg-primary-500/10"
@@ -259,14 +177,12 @@ export function UploadForm() {
       >
         <Upload className="size-10 text-slate-500 mx-auto mb-3" />
         <p className="text-slate-300 font-medium">
-          {isUploading
-            ? "Uploading in progress..."
-            : items.length >= MAX_FILE_COUNT
-              ? `Maximum ${MAX_FILE_COUNT} files reached`
-              : <>
-                  <span className="hidden sm:inline">Drop receipt images here or click to select</span>
-                  <span className="sm:hidden">Tap to select from gallery</span>
-                </>}
+          {items.length >= MAX_FILE_COUNT
+            ? `Maximum ${MAX_FILE_COUNT} files reached`
+            : <>
+                <span className="hidden sm:inline">Drop receipt images here or click to select</span>
+                <span className="sm:hidden">Tap to select from gallery</span>
+              </>}
         </p>
         <p className="text-sm text-slate-500 mt-1">
           JPEG, PNG, or WEBP up to 10MB &middot; Up to {MAX_FILE_COUNT} files per batch
@@ -277,7 +193,7 @@ export function UploadForm() {
           multiple
           accept="image/jpeg,image/png,image/webp"
           className="hidden"
-          disabled={isUploading}
+          disabled={overlayOpen}
           onChange={(e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length > 0) addFiles(files);
@@ -311,28 +227,9 @@ export function UploadForm() {
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatSize(item.file.size)}
-                    {item.status === "failed" && item.error && (
-                      <span className="text-red-400"> &middot; {item.error}</span>
-                    )}
                   </p>
                 </div>
-                <StatusBadge status={item.status} />
-                {item.status === "success" && item.expenseId && (
-                  <Button asChild variant="outline" size="sm" className="text-xs px-2">
-                    <a href={`/expenses/${item.expenseId}`}>View</a>
-                  </Button>
-                )}
-                {item.status === "failed" && !isUploading && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => handleRetry(item.id)}
-                    className="text-xs px-2"
-                  >
-                    Retry
-                  </Button>
-                )}
-                {!isUploading && item.status !== "success" && (
+                {!overlayOpen && (
                   <button
                     onClick={() => removeItem(item.id)}
                     aria-label={`Remove ${item.file.name}`}
@@ -347,71 +244,26 @@ export function UploadForm() {
         </ul>
       )}
 
-      {batchComplete && allSettled && (
-        <Card className="rounded-xl p-3">
-          <p className="text-sm text-slate-200">
-            {successCount} of {items.length} uploaded successfully
-            {failedCount > 0 && (
-              <span className="text-red-400">
-                {" "}
-                &middot; {failedCount} failed
-              </span>
-            )}
-          </p>
-        </Card>
-      )}
-
       <div className="flex flex-wrap gap-3">
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className="flex-1 min-w-[10rem]"
         >
-          {isUploading
-            ? "Uploading..."
-            : pendingCount > 0
-              ? `Upload ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
-              : "Upload"}
+          {pendingCount > 0
+            ? `Upload ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
+            : "Upload"}
         </Button>
-        {batchComplete && successCount > 0 && (
-          <Button variant="outline" asChild>
-            <a href="/expenses?status=needs_review">View All</a>
-          </Button>
-        )}
       </div>
+
+      {overlayOpen && (
+        <UploadProcessingOverlay
+          open={overlayOpen}
+          items={overlayItems}
+          onComplete={handleOverlayComplete}
+          onError={handleOverlayError}
+        />
+      )}
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: UploadStatus }) {
-  if (status === "pending") {
-    return <span className="text-xs text-slate-500">Pending</span>;
-  }
-  if (status === "uploading") {
-    return (
-      <svg
-        className="size-4 text-accent-400 animate-spin"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-        />
-      </svg>
-    );
-  }
-  if (status === "success") {
-    return <Check className="size-5 text-green-400" />;
-  }
-  return <AlertTriangle className="size-5 text-red-400" />;
 }

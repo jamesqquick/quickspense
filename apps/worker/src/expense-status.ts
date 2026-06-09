@@ -1,12 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+import type { ExpenseStatusUpdate } from "@quickspense/domain";
 import type { Env } from "./index.js";
-
-export type StatusUpdate = {
-  status: string;
-  step: string;
-  detail: string;
-  timestamp: number;
-};
 
 /**
  * Per-expense Durable Object that fan-outs workflow status updates to any
@@ -30,7 +24,7 @@ export class ExpenseStatusDO extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  async notify(update: StatusUpdate): Promise<void> {
+  async notify(update: ExpenseStatusUpdate): Promise<void> {
     const message = JSON.stringify(update);
     for (const ws of this.ctx.getWebSockets()) {
       try {
