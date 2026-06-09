@@ -2,8 +2,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   useUploadProcessing,
   type FileItem,
-  type UploadStage,
 } from "@/hooks/useUploadProcessing";
+import { getUploadStageLabel } from "@/lib/uploadProgress";
 
 export type { FileItem };
 
@@ -27,7 +27,7 @@ export function UploadProcessingOverlay({
     onError,
   });
 
-  const { title, subtitle } = getStageLabel(stage, detail);
+  const { title, subtitle } = getUploadStageLabel(stage, detail);
   const showBar = stage.type === "uploading" || stage.type === "processing";
 
   return (
@@ -66,44 +66,6 @@ export function UploadProcessingOverlay({
       </DialogContent>
     </Dialog>
   );
-}
-
-function getStageLabel(
-  stage: UploadStage,
-  detail: string | null,
-): { title: string; subtitle: string } {
-  switch (stage.type) {
-    case "uploading":
-      return {
-        title:
-          stage.total === 1
-            ? "Uploading receipt..."
-            : `Uploading receipts... (${stage.current} of ${stage.total})`,
-        subtitle: detail ?? "Sending your files",
-      };
-    case "processing": {
-      // Clamp: the run loop briefly sets current === total before switching to
-      // the "complete" stage; never display "(N+1 of N)".
-      const position = Math.min(stage.current + 1, stage.total);
-      return {
-        title:
-          stage.total === 1
-            ? "Reading your receipt..."
-            : `Processing receipts... (${position} of ${stage.total})`,
-        subtitle: detail ?? "Extracting details with AI",
-      };
-    }
-    case "complete":
-      return { title: "All done!", subtitle: "Redirecting you now..." };
-    case "error":
-      return {
-        title: "Upload failed",
-        subtitle:
-          stage.successCount > 0
-            ? `${stage.successCount} of ${stage.totalCount} uploaded`
-            : "Something went wrong",
-      };
-  }
 }
 
 function ProcessingIcon() {

@@ -4,6 +4,12 @@ import {
   EXPENSE_PROGRESS_STEPS,
   type ExpenseStatusUpdate,
 } from "@quickspense/domain";
+import {
+  computeUploadProgress,
+  type UploadStage,
+} from "@/lib/uploadProgress";
+
+export type { UploadStage };
 
 export type FileItem = {
   id: string;
@@ -13,12 +19,6 @@ export type FileItem = {
   expenseId?: string;
   error?: string;
 };
-
-export type UploadStage =
-  | { type: "uploading"; current: number; total: number }
-  | { type: "processing"; current: number; total: number }
-  | { type: "complete" }
-  | { type: "error"; successCount: number; totalCount: number };
 
 export type UploadProcessingState = {
   stage: UploadStage;
@@ -275,25 +275,7 @@ export function useUploadProcessing({
   return {
     stage,
     detail,
-    progressPercent: computeProgress(stage, currentStepIndex),
+    progressPercent: computeUploadProgress(stage, currentStepIndex),
     indeterminate: stage.type === "processing" && currentStepIndex < 0,
   };
-}
-
-/**
- * Overall progress as a percentage. During processing, blends completed-file
- * count with the in-file workflow step fraction so the bar advances smoothly
- * even for a single receipt.
- */
-function computeProgress(stage: UploadStage, stepIndex: number): number {
-  if (stage.type === "uploading") {
-    return Math.round((stage.current / stage.total) * 100);
-  }
-  if (stage.type === "processing") {
-    const stepFraction =
-      stepIndex >= 0 ? (stepIndex + 1) / EXPENSE_PROGRESS_STEPS.length : 0;
-    const overall = (stage.current + stepFraction) / stage.total;
-    return Math.min(100, Math.round(overall * 100));
-  }
-  return 0;
 }
