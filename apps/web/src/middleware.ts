@@ -33,9 +33,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const env = context.locals.runtime.env;
   const db = createDb(env.DB);
+  const baseURL = env.BETTER_AUTH_URL || context.url.origin;
   const auth = createAuth(db, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    BETTER_AUTH_URL: baseURL,
   });
 
   // Validate session via Better Auth
