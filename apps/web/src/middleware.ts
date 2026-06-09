@@ -33,7 +33,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const env = context.locals.runtime.env;
   const db = createDb(env.DB);
-  const baseURL = env.BETTER_AUTH_URL || context.url.origin;
+  // Use the actual request origin as baseURL so OAuth callbacks redirect to
+  // the right host (localhost in dev, quickspense.com in prod).
+  const baseURL = context.url.origin;
 
   // Build the email sender from the Cloudflare EMAIL binding (if available).
   // Under `astro dev` the EMAIL binding is undefined; password reset emails
@@ -59,7 +61,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
     sendEmail,
     GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
-    requestOrigin: context.url.origin,
   });
 
   // Attach auth instance to locals so API routes can reuse it

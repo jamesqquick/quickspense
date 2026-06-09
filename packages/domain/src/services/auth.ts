@@ -25,8 +25,6 @@ export type AuthEnv = {
   /** Google OAuth credentials — optional; omit to disable Google login. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  /** The actual request origin (e.g. http://localhost:4321 in dev). */
-  requestOrigin?: string;
 };
 
 /**
@@ -48,12 +46,7 @@ export function createAuth(db: Database, env: AuthEnv) {
     }),
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    trustedOrigins: [
-      env.BETTER_AUTH_URL,
-      ...(env.requestOrigin && env.requestOrigin !== env.BETTER_AUTH_URL
-        ? [env.requestOrigin]
-        : []),
-    ],
+    trustedOrigins: [env.BETTER_AUTH_URL],
     socialProviders: {
       ...(env.GOOGLE_CLIENT_ID &&
         env.GOOGLE_CLIENT_SECRET && {
