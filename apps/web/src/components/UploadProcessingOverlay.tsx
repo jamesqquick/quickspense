@@ -29,7 +29,17 @@ type StatusUpdate = {
 
 const TERMINAL_STATUSES = new Set(["needs_review", "active", "failed"]);
 const MAX_PROCESS_MS = 5 * 60 * 1000; // 5 minutes
-const POLL_DELAYS = [3000, 5000, 10000, 30000];
+const POLL_DELAYS = [2000, 3000, 5000, 10000];
+
+// Ordered workflow steps, mirroring the worker's notifyStatus sequence.
+const PROGRESS_STEPS = [
+  "mark-processing",
+  "ocr",
+  "extract",
+  "normalize",
+  "persist-results",
+  "complete",
+];
 
 type Props = {
   open: boolean;
@@ -50,9 +60,22 @@ export function UploadProcessingOverlay({
     total: items.length,
   });
   const [processingDetail, setProcessingDetail] = useState<string | null>(null);
+  // Step index for the file currently being processed; -1 when no WS step
+  // has arrived yet (drives the indeterminate shimmer fallback).
+  const [currentStepIndex, setCurrentStepIndex] = useState(-1);
+
   const hasStarted = useRef(false);
   const wsRefs = useRef<Map<string, WebSocket>>(new Map());
   const pollTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Keep latest callbacks in refs so the main effect can depend only on `open`
+  // and never re-run (and tear down in-flight work) on incidental re-renders.
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onComplete, onError]);
 
   const cleanup = useCallback(() => {
     for (const ws of wsRefs.current.values()) {
@@ -81,11 +104,18 @@ export function UploadProcessingOverlay({
     [],
   );
 
+  /**
+   * Resolves once the given expense reaches a terminal status. Polling is the
+   * source of truth for completion (always runs, owns the timeout). The
+   * WebSocket runs in parallel purely to enrich live step detail/progress and
+   * to resolve early when a terminal message arrives.
+   */
   const waitForProcessing = useCallback(
     (expenseId: string): Promise<boolean> => {
       return new Promise((resolve) => {
         const startedAt = Date.now();
         let resolved = false;
+
         const done = (success: boolean) => {
           if (resolved) return;
           resolved = true;
@@ -98,95 +128,57 @@ export function UploadProcessingOverlay({
           resolve(success);
         };
 
-        // Check if already complete before opening WS (handles fast workflows)
-        checkExpenseStatus(expenseId).then((status) => {
+        // --- Always-on completion polling (source of truth) ---
+        const poll = async (attempt: number) => {
+          if (resolved) return;
+          if (Date.now() - startedAt >= MAX_PROCESS_MS) {
+            // Timed out — treat as success so the user can finish manually
+            // on the detail page.
+            done(true);
+            return;
+          }
+
+          const status = await checkExpenseStatus(expenseId);
           if (resolved) return;
           if (status && TERMINAL_STATUSES.has(status)) {
             done(status !== "failed");
             return;
           }
-          connectWebSocket();
-        });
 
-        function connectWebSocket() {
-          if (resolved) return;
+          const delay = POLL_DELAYS[Math.min(attempt, POLL_DELAYS.length - 1)];
+          const timer = setTimeout(() => poll(attempt + 1), delay);
+          pollTimers.current.set(expenseId, timer);
+        };
 
+        // Kick off the first poll immediately (handles workflows that finished
+        // before this expense's turn in the queue).
+        poll(0);
+
+        // --- WebSocket enrichment (best-effort, runs in parallel) ---
+        try {
           const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
           const wsUrl = `${protocol}//${window.location.host}/api/expenses/${expenseId}/ws`;
-          let wsConnected = false;
+          const ws = new WebSocket(wsUrl);
+          wsRefs.current.set(expenseId, ws);
 
-          try {
-            const ws = new WebSocket(wsUrl);
-            wsRefs.current.set(expenseId, ws);
-
-            ws.onopen = () => {
-              wsConnected = true;
-              // Re-check status after WS connects to catch the race where
-              // the workflow finished between the initial check and WS open
-              checkExpenseStatus(expenseId).then((status) => {
-                if (resolved) return;
-                if (status && TERMINAL_STATUSES.has(status)) {
-                  done(status !== "failed");
-                }
-              });
-            };
-
-            ws.onmessage = (event) => {
-              try {
-                const update: StatusUpdate = JSON.parse(event.data);
-                setProcessingDetail(update.detail);
-                if (TERMINAL_STATUSES.has(update.status)) {
-                  done(update.status !== "failed");
-                }
-              } catch {
-                // Ignore non-JSON messages
+          ws.onmessage = (event) => {
+            try {
+              const update: StatusUpdate = JSON.parse(event.data);
+              setProcessingDetail(update.detail);
+              const idx = PROGRESS_STEPS.indexOf(update.step);
+              if (idx >= 0) setCurrentStepIndex(idx);
+              if (TERMINAL_STATUSES.has(update.status)) {
+                done(update.status !== "failed");
               }
-            };
-
-            ws.onclose = () => {
-              wsRefs.current.delete(expenseId);
-              if (!resolved && !wsConnected) {
-                startPolling();
-              }
-            };
-
-            ws.onerror = () => {
-              wsRefs.current.delete(expenseId);
-              if (!resolved) {
-                startPolling();
-              }
-            };
-          } catch {
-            startPolling();
-          }
-        }
-
-        // Polling fallback
-        function startPolling() {
-          let attempt = 0;
-
-          const poll = async () => {
-            if (resolved) return;
-            if (Date.now() - startedAt >= MAX_PROCESS_MS) {
-              // Timed out — treat as success so user can finish manually
-              done(true);
-              return;
+            } catch {
+              // Ignore non-JSON messages
             }
-
-            const status = await checkExpenseStatus(expenseId);
-            if (resolved) return;
-            if (status && TERMINAL_STATUSES.has(status)) {
-              done(status !== "failed");
-              return;
-            }
-
-            const delay = POLL_DELAYS[Math.min(attempt, POLL_DELAYS.length - 1)];
-            attempt += 1;
-            const timer = setTimeout(poll, delay);
-            pollTimers.current.set(expenseId, timer);
           };
 
-          poll();
+          // No onclose/onerror -> polling handling needed; the always-on poll
+          // already guarantees completion detection.
+        } catch {
+          // WebSocket unavailable — polling still drives completion.
         }
       });
     },
@@ -229,7 +221,7 @@ export function UploadProcessingOverlay({
       if (successIds.length === 0) {
         setStage({ type: "error", successCount: 0, totalCount: total });
         toast.error(`Upload failed for all ${total} file${total === 1 ? "" : "s"}`);
-        setTimeout(() => onError(), 1500);
+        setTimeout(() => onErrorRef.current(), 1500);
         return;
       }
 
@@ -237,6 +229,8 @@ export function UploadProcessingOverlay({
       const processingTotal = successIds.length;
 
       for (let i = 0; i < successIds.length; i++) {
+        setCurrentStepIndex(-1);
+        setProcessingDetail(null);
         setStage({
           type: "processing",
           current: i,
@@ -244,6 +238,7 @@ export function UploadProcessingOverlay({
         });
 
         await waitForProcessing(successIds[i]);
+
         setStage({
           type: "processing",
           current: i + 1,
@@ -266,7 +261,7 @@ export function UploadProcessingOverlay({
 
       // Brief pause on "All done!" before navigating
       setTimeout(() => {
-        onComplete(successIds);
+        onCompleteRef.current(successIds);
       }, 800);
     };
 
@@ -275,7 +270,7 @@ export function UploadProcessingOverlay({
     return () => {
       cleanup();
     };
-  }, [open, items, onComplete, onError, waitForProcessing, cleanup]);
+  }, [open, items, waitForProcessing, cleanup]);
 
   // Reset when overlay closes
   useEffect(() => {
@@ -285,6 +280,9 @@ export function UploadProcessingOverlay({
   }, [open]);
 
   const stageLabel = getStageLabel(stage, processingDetail);
+  const progressPercent = computeProgress(stage, currentStepIndex);
+  const indeterminate =
+    stage.type === "processing" && currentStepIndex < 0;
 
   return (
     <Dialog open={open}>
@@ -317,13 +315,15 @@ export function UploadProcessingOverlay({
           {/* Progress bar */}
           {(stage.type === "uploading" || stage.type === "processing") && (
             <div className="w-full max-w-xs">
-              <div className="w-full bg-white/10 rounded-full h-1.5">
-                <div
-                  className="h-1.5 rounded-full bg-primary-400 transition-all duration-700 ease-out"
-                  style={{
-                    width: `${Math.round((stage.current / stage.total) * 100)}%`,
-                  }}
-                />
+              <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                {indeterminate ? (
+                  <div className="h-1.5 w-2/5 rounded-full bg-primary-400 animate-indeterminate" />
+                ) : (
+                  <div
+                    className="h-1.5 rounded-full bg-primary-400 transition-all duration-700 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -331,6 +331,24 @@ export function UploadProcessingOverlay({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Overall progress as a percentage. During processing, blends completed-file
+ * count with the in-file workflow step fraction so the bar advances smoothly
+ * even for a single receipt.
+ */
+function computeProgress(stage: OverlayStage, stepIndex: number): number {
+  if (stage.type === "uploading") {
+    return Math.round((stage.current / stage.total) * 100);
+  }
+  if (stage.type === "processing") {
+    const stepFraction =
+      stepIndex >= 0 ? (stepIndex + 1) / PROGRESS_STEPS.length : 0;
+    const overall = (stage.current + stepFraction) / stage.total;
+    return Math.min(100, Math.round(overall * 100));
+  }
+  return 0;
 }
 
 function getStageLabel(
@@ -349,7 +367,7 @@ function getStageLabel(
       return {
         title: stage.total === 1
           ? "Reading your receipt..."
-          : `Processing receipts... (${stage.current} of ${stage.total})`,
+          : `Processing receipts... (${stage.current + 1} of ${stage.total})`,
         subtitle: detail ?? "Extracting details with AI",
       };
     case "complete":
