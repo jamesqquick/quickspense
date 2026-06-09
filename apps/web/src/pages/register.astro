@@ -105,10 +105,13 @@ if (Astro.locals.user) {
 
     const googleBtn = document.getElementById("google-signin") as HTMLButtonElement;
     googleBtn.addEventListener("click", async () => {
-      await authClient.signIn.social({
+      const { error } = await authClient.signIn.social({
         provider: "google",
         callbackURL: "/dashboard",
       });
+      if (error) {
+        showToast("error", error.message || "Google sign-in failed");
+      }
     });
   </script>
 </Layout>
