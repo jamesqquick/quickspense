@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import type { Expense, ExpenseStatus, ParsedExpense, Category } from "@quickspense/domain";
+import type {
+  Expense,
+  ExpenseStatus,
+  ParsedExpense,
+  Category,
+  ExpenseStatusUpdate,
+} from "@quickspense/domain";
+import { EXPENSE_PROGRESS_STEPS, EXPENSE_STEP_LABELS } from "@quickspense/domain";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +25,6 @@ import { Trash2 } from "lucide-react";
 
 type Props = {
   expenseId: string;
-};
-
-type StatusUpdate = {
-  status: string;
-  step: string;
-  detail: string;
-  timestamp: number;
 };
 
 function formatCents(cents: number | null): string {
@@ -53,25 +53,6 @@ const STATUS_LABEL: Record<ExpenseStatus, string> = {
   needs_review: "needs review",
   failed: "failed",
 };
-
-const STEP_LABELS: Record<string, string> = {
-  "mark-processing": "Starting...",
-  ocr: "Reading receipt text...",
-  extract: "Extracting receipt data...",
-  normalize: "Normalizing data...",
-  "persist-results": "Saving results...",
-  complete: "Processing complete!",
-  error: "Processing failed",
-};
-
-const PROGRESS_STEPS = [
-  "mark-processing",
-  "ocr",
-  "extract",
-  "normalize",
-  "persist-results",
-  "complete",
-];
 
 /**
  * Unified expense detail view. Behavior depends on `expense.status`:
@@ -188,7 +169,7 @@ export function ExpenseReview({ expenseId }: Props) {
 
         ws.onmessage = (event) => {
           try {
-            const update: StatusUpdate = JSON.parse(event.data);
+            const update: ExpenseStatusUpdate = JSON.parse(event.data);
             setProgressDetail(update.detail);
             setCurrentStep(update.step);
             if (update.status === "needs_review" || update.status === "failed") {
@@ -392,10 +373,10 @@ export function ExpenseReview({ expenseId }: Props) {
   const isEditable = isNeedsReview || isActive;
 
   const currentStepIndex = currentStep
-    ? PROGRESS_STEPS.indexOf(currentStep)
+    ? EXPENSE_PROGRESS_STEPS.indexOf(currentStep as (typeof EXPENSE_PROGRESS_STEPS)[number])
     : -1;
   const progressPercent = currentStep
-    ? Math.min(100, Math.round(((currentStepIndex + 1) / PROGRESS_STEPS.length) * 100))
+    ? Math.min(100, Math.round(((currentStepIndex + 1) / EXPENSE_PROGRESS_STEPS.length) * 100))
     : 0;
 
   return (
@@ -479,7 +460,7 @@ export function ExpenseReview({ expenseId }: Props) {
                       />
                     </div>
                     <div className="flex flex-wrap justify-center gap-1.5">
-                      {PROGRESS_STEPS.slice(0, -1).map((step, i) => (
+                      {EXPENSE_PROGRESS_STEPS.slice(0, -1).map((step, i) => (
                         <span
                           key={step}
                           className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
@@ -488,7 +469,7 @@ export function ExpenseReview({ expenseId }: Props) {
                               : "bg-white/5 text-slate-600"
                           }`}
                         >
-                          {STEP_LABELS[step] || step}
+                          {EXPENSE_STEP_LABELS[step] || step}
                         </span>
                       ))}
                     </div>

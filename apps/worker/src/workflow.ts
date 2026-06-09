@@ -3,14 +3,20 @@ import {
   WorkflowStep,
   WorkflowEvent,
 } from "cloudflare:workers";
-import { createDb, createLogger, expenses, parse } from "@quickspense/domain";
+import {
+  createDb,
+  createLogger,
+  expenses,
+  parse,
+  type ExpenseStatusUpdate,
+} from "@quickspense/domain";
 import type { Env } from "./index.js";
 import { extractTextFromImage } from "./ai/ocr.js";
 import {
   extractStructuredData,
   normalizeExtractedData,
 } from "./ai/extract.js";
-import type { ExpenseStatusDO, StatusUpdate } from "./expense-status.js";
+import type { ExpenseStatusDO } from "./expense-status.js";
 
 type WorkflowParams = {
   expenseId: string;
@@ -26,7 +32,7 @@ export class ExpenseProcessingWorkflow extends WorkflowEntrypoint<
   Env,
   WorkflowParams
 > {
-  private notifyStatus(expenseId: string, update: Omit<StatusUpdate, "timestamp">): void {
+  private notifyStatus(expenseId: string, update: Omit<ExpenseStatusUpdate, "timestamp">): void {
     const stub = this.env.EXPENSE_STATUS_DO.idFromName(expenseId);
     const obj = this.env.EXPENSE_STATUS_DO.get(stub) as DurableObjectStub<ExpenseStatusDO>;
     obj.notify({ ...update, timestamp: Date.now() }).catch(() => {
