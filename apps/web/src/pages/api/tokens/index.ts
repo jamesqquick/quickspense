@@ -1,39 +1,63 @@
 import type { APIRoute } from "astro";
-import { auth, createApiTokenSchema, createDb } from "@quickspense/domain";
+import { createAuth, createDb } from "@quickspense/domain";
 
 export const GET: APIRoute = async ({ locals }) => {
-  const user = locals.user!;
-  const db = createDb(locals.runtime.env.DB);
-  const tokens = await auth.listApiTokens(db, user.id);
-  return new Response(JSON.stringify(tokens), {
-    headers: { "Content-Type": "application/json" },
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  const env = locals.runtime.env;
+  const db = createDb(env.DB);
+  const auth = createAuth(db, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
   });
+
+  const result = await auth.api.listApiKeys({
+    headers: new Headers(),
+    query: {},
+    body: { userId: user.id },
+  });
+
+  return Response.json(
+    (result.apiKeys ?? []).map((k: { id: string; name: string | null; createdAt: Date }) => ({
+      id: k.id,
+      name: k.name ?? "Untitled",
+      created_at: k.createdAt instanceof Date ? k.createdAt.toISOString() : k.createdAt,
+    })),
+  );
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  try {
-    const user = locals.user!;
-    const db = createDb(locals.runtime.env.DB);
+export const POST: APIRoute = async ({ locals, request }) => {
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
 
-    const body = await request.json();
-    const parsed = createApiTokenSchema.safeParse(body);
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({ error: parsed.error.issues[0].message }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    const result = await auth.createApiToken(db, user.id, parsed.data.name);
-    return new Response(JSON.stringify(result), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (e: unknown) {
-    console.error("Create token error:", e);
+  const body = await request.json();
+  const name = body?.name;
+  if (!name || typeof name !== "string" || name.length < 1 || name.length > 100) {
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({ error: "Token name is required (1-100 chars)" }),
+      { status: 400 },
     );
   }
+
+  const env = locals.runtime.env;
+  const db = createDb(env.DB);
+  const auth = createAuth(db, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+  });
+
+  const result = await auth.api.createApiKey({
+    body: {
+      name,
+      prefix: "qs_",
+      userId: user.id,
+    },
+  });
+
+  return Response.json({ token: result.key, tokenId: result.id });
 };

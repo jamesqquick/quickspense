@@ -4,13 +4,6 @@ export type ExpenseStatus =
   | "needs_review"
   | "failed";
 
-export type User = {
-  id: string;
-  email: string;
-  password_hash: string;
-  created_at: string;
-};
-
 export type BusinessProfile = {
   user_id: string;
   business_name: string;
@@ -19,21 +12,6 @@ export type BusinessProfile = {
   business_address: string | null;
   created_at: string;
   updated_at: string;
-};
-
-export type Session = {
-  id: string;
-  user_id: string;
-  expires_at: string;
-  created_at: string;
-};
-
-export type ApiToken = {
-  id: string;
-  user_id: string;
-  token_hash: string;
-  name: string;
-  created_at: string;
 };
 
 export type Category = {

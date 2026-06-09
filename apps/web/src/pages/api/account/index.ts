@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth, createDb } from "@quickspense/domain";
+import { deleteUser, createDb } from "@quickspense/domain";
 
 export const DELETE: APIRoute = async ({ locals, cookies }) => {
   const user = locals.user!;
@@ -12,7 +12,7 @@ export const DELETE: APIRoute = async ({ locals, cookies }) => {
   try {
     // Remove user from D1 (cascades to all user-owned tables).
     // Returns the list of R2 file keys to clean up.
-    const { fileKeys } = await auth.deleteUser(db, user.id);
+    const { fileKeys } = await deleteUser(db, user.id);
 
     // Clean up R2 objects. Best-effort: if any fail, we've already deleted
     // the D1 rows so the files are orphaned but no longer linked to a user.
@@ -33,8 +33,8 @@ export const DELETE: APIRoute = async ({ locals, cookies }) => {
       r2ObjectsFailed: failed,
     });
 
-    // Clear session cookie
-    cookies.delete("session", { path: "/" });
+    // Clear Better Auth session cookie
+    cookies.delete("better-auth.session_token", { path: "/" });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { "Content-Type": "application/json" },

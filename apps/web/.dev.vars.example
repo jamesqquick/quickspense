@@ -23,3 +23,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # production. Only use this if you're knowingly reproducing a live-mode
 # bug locally. DO NOT leave this set.
 # STRIPE_ALLOW_LIVE_KEY=1
+
+# Better Auth — required for all authentication flows.
+# Generate a strong random secret: `openssl rand -base64 32`
+BETTER_AUTH_SECRET=change-me-to-a-random-secret
+BETTER_AUTH_URL=http://localhost:4321

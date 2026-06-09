@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { auth, createDb, createLogger, newRequestId } from "@quickspense/domain";
+import { createAuth, createDb, createLogger, newRequestId } from "@quickspense/domain";
 
 const PUBLIC_PATHS = [
   "/",
@@ -8,10 +8,7 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/pay",
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/auth/forgot-password",
-  "/api/auth/reset-password",
+  "/api/auth",
   "/api/invoices/public",
   "/api/webhooks/stripe",
 ];
@@ -34,23 +31,36 @@ export const onRequest = defineMiddleware(async (context, next) => {
     method: context.request.method,
   });
 
-  // Parse session cookie
-  const sessionId = context.cookies.get("session")?.value;
-  if (sessionId) {
-    try {
-      const db = createDb(context.locals.runtime.env.DB);
-      const result = await auth.validateSession(db, sessionId);
-      if (result) {
-        context.locals.user = { id: result.user.id, email: result.user.email };
-        // Attach userId to the logger for all downstream logs
-        context.locals.logger = context.locals.logger.child({ userId: result.user.id });
-      } else {
-        context.cookies.delete("session", { path: "/" });
-      }
-    } catch (e) {
-      context.locals.logger.error("Session validation error", { error: e });
-      context.cookies.delete("session", { path: "/" });
+  const env = context.locals.runtime.env;
+  const db = createDb(env.DB);
+  const auth = createAuth(db, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+  });
+
+  // Validate session via Better Auth
+  try {
+    const session = await auth.api.getSession({
+      headers: context.request.headers,
+    });
+
+    if (session) {
+      context.locals.user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+      };
+      context.locals.session = {
+        id: session.session.id,
+        token: session.session.token,
+        expiresAt: session.session.expiresAt,
+      };
+      context.locals.logger = context.locals.logger.child({
+        userId: session.user.id,
+      });
     }
+  } catch (e) {
+    context.locals.logger.error("Session validation error", { error: e });
   }
 
   // Protect non-public routes

@@ -1,20 +1,28 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { createDb } from "../src/db/index.js";
-import * as auth from "../src/services/auth.js";
+import { users } from "../src/db/schema.js";
 import * as expenses from "../src/services/expense.js";
+
+async function createTestUser(db: ReturnType<typeof createDb>, email: string) {
+  const id = crypto.randomUUID();
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: false });
+  return { id, email };
+}
 
 /**
  * Minimal schema applied before each test. Mirrors the unified schema in
- * migrations/0001_initial.sql + 0006_merge_receipts_into_expenses.sql,
- * scoped to the tables the tests exercise.
+ * migrations/0007_better_auth.sql, scoped to the tables the tests exercise.
  */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  image TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
@@ -63,8 +71,8 @@ describe("multi-tenant authorization", () => {
   it("User B cannot access User A's expense", async () => {
     const db = createDb(env.DB);
 
-    const userA = await auth.createUser(db, "a@example.com", "passwordA123");
-    const userB = await auth.createUser(db, "b@example.com", "passwordB123");
+    const userA = await createTestUser(db, "a@example.com");
+    const userB = await createTestUser(db, "b@example.com");
 
     // User A uploads a receipt -> creates a `processing` expense.
     const aProcessing = await expenses.createExpenseForUpload(db, {

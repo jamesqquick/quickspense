@@ -1,15 +1,24 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { createDb } from "../src/db/index.js";
-import * as auth from "../src/services/auth.js";
+import { users } from "../src/db/schema.js";
 import * as invoices from "../src/services/invoice.js";
+
+async function createTestUser(db: ReturnType<typeof createDb>, email: string) {
+  const id = crypto.randomUUID();
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: false });
+  return { id, email };
+}
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  image TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS invoices (
   id TEXT PRIMARY KEY,
@@ -73,7 +82,7 @@ describe("invoices", () => {
 
   it("computes subtotal, tax, and total in cents", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -91,8 +100,8 @@ describe("invoices", () => {
 
   it("assigns sequential invoice numbers per user", async () => {
     const db = createDb(env.DB);
-    const userA = await auth.createUser(db, "a@test.com", "password123");
-    const userB = await auth.createUser(db, "b@test.com", "password123");
+    const userA = await createTestUser(db, "a@test.com");
+    const userB = await createTestUser(db, "b@test.com");
 
     const a1 = await invoices.createDraftInvoice(db, {
       userId: userA.id,
@@ -114,7 +123,7 @@ describe("invoices", () => {
 
   it("enforces draft -> sent transition only", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -132,7 +141,7 @@ describe("invoices", () => {
 
   it("blocks editing a non-draft invoice", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -149,7 +158,7 @@ describe("invoices", () => {
 
   it("blocks deleting a sent invoice (must be voided first)", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -164,7 +173,7 @@ describe("invoices", () => {
 
   it("blocks deleting a paid invoice", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -184,7 +193,7 @@ describe("invoices", () => {
 
   it("deletes a draft invoice and its line items", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -199,7 +208,7 @@ describe("invoices", () => {
 
   it("deletes a void invoice", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -216,7 +225,7 @@ describe("invoices", () => {
 
   it("blocks voiding a paid invoice", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -236,7 +245,7 @@ describe("invoices", () => {
 
   it("markInvoicePaidByPayToken is idempotent", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -288,7 +297,7 @@ describe("invoices", () => {
 
   it("refuses to mark paid when amount_total mismatches invoice total", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -320,7 +329,7 @@ describe("invoices", () => {
 
   it("refuses to mark paid when currency mismatches", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -345,7 +354,7 @@ describe("invoices", () => {
 
   it("refuses void -> paid transition", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -372,7 +381,7 @@ describe("invoices", () => {
 
   it("updateDraftInvoice replaces line items and recomputes totals", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
@@ -392,8 +401,8 @@ describe("invoices", () => {
 
   it("getInvoice scopes by user", async () => {
     const db = createDb(env.DB);
-    const userA = await auth.createUser(db, "a@test.com", "password123");
-    const userB = await auth.createUser(db, "b@test.com", "password123");
+    const userA = await createTestUser(db, "a@test.com");
+    const userB = await createTestUser(db, "b@test.com");
 
     const invoice = await invoices.createDraftInvoice(db, {
       userId: userA.id,

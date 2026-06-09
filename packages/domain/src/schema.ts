@@ -1,15 +1,5 @@
 import { z } from "zod";
 
-export const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
 export const createCategorySchema = z.object({
   name: z.string().min(1, "Category name is required").max(100),
 });
@@ -86,19 +76,6 @@ export const listExpensesSchema = z.object({
   search: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
-});
-
-export const createApiTokenSchema = z.object({
-  name: z.string().min(1, "Token name is required").max(100),
-});
-
-export const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
-});
-
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Token is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // ---------------------------------------------------------------------------

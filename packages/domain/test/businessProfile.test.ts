@@ -1,15 +1,24 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { createDb } from "../src/db/index.js";
-import * as auth from "../src/services/auth.js";
+import { users } from "../src/db/schema.js";
 import * as businessProfiles from "../src/services/businessProfile.js";
+
+async function createTestUser(db: ReturnType<typeof createDb>, email: string) {
+  const id = crypto.randomUUID();
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: false });
+  return { id, email };
+}
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  image TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS business_profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -39,7 +48,7 @@ describe("businessProfiles", () => {
 
   it("returns null when no profile exists", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const profile = await businessProfiles.getBusinessProfile(db, user.id);
     expect(profile).toBeNull();
@@ -47,7 +56,7 @@ describe("businessProfiles", () => {
 
   it("creates a profile on first upsert", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const created = await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Acme Consulting",
@@ -70,7 +79,7 @@ describe("businessProfiles", () => {
 
   it("creates a profile with only required fields", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     const created = await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Solo Freelancer",
@@ -84,7 +93,7 @@ describe("businessProfiles", () => {
 
   it("updates an existing profile (overwrites provided fields)", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Old Name",
@@ -107,7 +116,7 @@ describe("businessProfiles", () => {
 
   it("leaves omitted optional fields unchanged on update", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Acme",
@@ -129,7 +138,7 @@ describe("businessProfiles", () => {
 
   it("clears optional fields when explicitly set to null", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Acme",
@@ -152,8 +161,8 @@ describe("businessProfiles", () => {
 
   it("scopes profiles by user", async () => {
     const db = createDb(env.DB);
-    const userA = await auth.createUser(db, "a@test.com", "password123");
-    const userB = await auth.createUser(db, "b@test.com", "password123");
+    const userA = await createTestUser(db, "a@test.com");
+    const userB = await createTestUser(db, "b@test.com");
 
     await businessProfiles.upsertBusinessProfile(db, userA.id, {
       business_name: "A Inc",
@@ -170,7 +179,7 @@ describe("businessProfiles", () => {
 
   it("cascades when the user is deleted", async () => {
     const db = createDb(env.DB);
-    const user = await auth.createUser(db, "user@test.com", "password123");
+    const user = await createTestUser(db, "user@test.com");
 
     await businessProfiles.upsertBusinessProfile(db, user.id, {
       business_name: "Acme",
