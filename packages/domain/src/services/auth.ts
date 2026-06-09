@@ -36,6 +36,7 @@ export function createAuth(db: Database, env: AuthEnv) {
     }),
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
+    trustedOrigins: [env.BETTER_AUTH_URL],
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
