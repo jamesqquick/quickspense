@@ -17,7 +17,6 @@ export async function createParsedExpense(
     currency?: string | null;
     purchaseDate?: string | null;
     suggestedCategory?: string | null;
-    confidenceScore?: number | null;
     rawResponse?: string | null;
   },
 ): Promise<ParsedExpense> {
@@ -35,7 +34,7 @@ export async function createParsedExpense(
     currency: params.currency ?? null,
     purchase_date: params.purchaseDate ?? null,
     suggested_category: params.suggestedCategory ?? null,
-    confidence_score: params.confidenceScore ?? null,
+    confidence_score: null,
     raw_response: params.rawResponse ?? null,
   });
 
@@ -51,7 +50,7 @@ export async function createParsedExpense(
     currency: params.currency ?? null,
     purchase_date: params.purchaseDate ?? null,
     suggested_category: params.suggestedCategory ?? null,
-    confidence_score: params.confidenceScore ?? null,
+    confidence_score: null,
     raw_response: params.rawResponse ?? null,
     created_at: new Date().toISOString(),
   };

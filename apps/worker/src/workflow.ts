@@ -149,7 +149,6 @@ export class ExpenseProcessingWorkflow extends WorkflowEntrypoint<
           currency: normalized.currency,
           purchaseDate: normalized.purchaseDate,
           suggestedCategory: normalized.suggestedCategory,
-          confidenceScore: normalized.confidenceScore,
           rawResponse: JSON.stringify(extracted),
         });
       });

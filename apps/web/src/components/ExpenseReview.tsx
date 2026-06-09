@@ -411,27 +411,6 @@ export function ExpenseReview({ expenseId }: Props) {
           )}
         </div>
 
-        {parsed?.confidence_score !== null &&
-          parsed?.confidence_score !== undefined && (
-            <div>
-              <p className="text-sm text-slate-400 mb-1">
-                AI Confidence: {Math.round(parsed.confidence_score * 100)}%
-              </p>
-              <div className="w-full bg-white/10 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    parsed.confidence_score > 0.7
-                      ? "bg-green-400"
-                      : parsed.confidence_score > 0.4
-                        ? "bg-yellow-400"
-                        : "bg-red-400"
-                  }`}
-                  style={{ width: `${parsed.confidence_score * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
         {isProcessing ? (
           <div className="text-center py-8">
             {pollGaveUp && !usingWebSocket ? (

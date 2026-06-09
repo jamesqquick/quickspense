@@ -100,12 +100,7 @@ if (Astro.locals.user) {
                     <span class="text-xs bg-accent-500/20 text-accent-400 px-2 py-0.5 rounded-full font-medium">Dining</span>
                   </div>
                 </div>
-                <!-- Confidence bar -->
-                <div class="mt-3">
-                  <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div class="mockup-confidence h-full bg-green-400 rounded-full" style="width: 0%"></div>
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>
@@ -178,7 +173,7 @@ if (Astro.locals.user) {
               </svg>
             </div>
             <h3 class="text-lg font-semibold text-white mb-2">Human-in-the-Loop Review</h3>
-            <p class="text-sm text-slate-400 leading-relaxed">AI extracts the data, you verify it. Edit any field, see confidence scores, and finalize when you're ready.</p>
+            <p class="text-sm text-slate-400 leading-relaxed">AI extracts the data, you verify it. Edit any field and finalize when you're ready.</p>
           </div>
 
           <!-- Feature 4: Expense Tracking -->
@@ -293,12 +288,11 @@ if (Astro.locals.user) {
             <div>
               <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold text-lg mb-4">3</div>
               <h3 class="text-2xl font-bold text-white mb-3">Review, edit, and finalize</h3>
-              <p class="text-slate-400 leading-relaxed">Check the AI's work. Edit any field that needs correcting, see the confidence score, and click finalize to create the expense record. The receipt image stays linked for your records.</p>
+              <p class="text-slate-400 leading-relaxed">Check the AI's work. Edit any field that needs correcting and click finalize to create the expense record. The receipt image stays linked for your records.</p>
             </div>
             <div class="glass rounded-2xl p-6">
               <div class="flex items-center gap-2 mb-4">
                 <span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">Finalized</span>
-                <span class="text-xs text-slate-400">Confidence: 94%</span>
               </div>
               <div class="space-y-2">
                 <div class="flex items-center justify-between py-2 border-b border-white/5">
@@ -463,11 +457,6 @@ if (Astro.locals.user) {
         animation-delay: 2.2s;
       }
 
-      .mockup-confidence {
-        animation: confidenceFill 0.8s ease-out forwards;
-        animation-delay: 4.5s;
-      }
-
       @keyframes fadeInUp {
         from {
           opacity: 0;
@@ -502,9 +491,5 @@ if (Astro.locals.user) {
         to { width: 100%; }
       }
 
-      @keyframes confidenceFill {
-        from { width: 0%; }
-        to { width: 94%; }
-      }
     </style>
   </LandingLayout>
