@@ -57,6 +57,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: baseURL,
     sendEmail,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
   });
 
   // Attach auth instance to locals so API routes can reuse it

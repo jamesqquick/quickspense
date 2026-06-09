@@ -16,7 +16,10 @@
     // Read by lib/stripe.ts to authorize use of `sk_live_...` keys. Only the
     // production-deployed worker should have this set to "production".
     "ENVIRONMENT": "production",
-    "BETTER_AUTH_URL": "https://quickspense.com"
+    "BETTER_AUTH_URL": "https://quickspense.com",
+    // Non-secret client ID for Google OAuth. The client secret is set via
+    // `wrangler secret put GOOGLE_CLIENT_SECRET`.
+    "GOOGLE_CLIENT_ID": ""
   },
   "d1_databases": [
     {
