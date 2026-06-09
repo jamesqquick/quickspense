@@ -17,11 +17,6 @@ type ExpenseDeleteConfirmProps = {
   onCancel: () => void;
 };
 
-function formatCents(cents: number | null): string {
-  if (cents === null) return "—";
-  return (cents / 100).toFixed(2);
-}
-
 export function ExpenseDeleteConfirm({
   expense,
   onConfirm,
@@ -60,10 +55,6 @@ export function ExpenseDeleteConfirm({
             Are you sure you want to delete{" "}
             <span className="text-white font-medium">
               {expense.merchant ?? "this expense"}
-            </span>{" "}
-            for{" "}
-            <span className="text-white font-medium">
-              ${formatCents(expense.amount)}
             </span>
             ? This cannot be undone.
           </DialogDescription>

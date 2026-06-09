@@ -599,7 +599,7 @@ export function ExpenseReview({ expenseId }: Props) {
               {reprocessing ? "Retrying..." : "Retry"}
             </Button>
           )}
-          {isActive && (
+          {(isActive || isNeedsReview) && (
             <Button
               variant="ghost"
               onClick={() => setConfirmingDelete(true)}
