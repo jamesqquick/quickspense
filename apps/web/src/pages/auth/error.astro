@@ -16,9 +16,13 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     title: "Email Not Available",
     description: "We couldn't retrieve your email address from the provider. Please try a different sign-in method.",
   },
-  account_not_found: {
-    title: "Account Not Found",
-    description: "We couldn't find an account matching those credentials. Please register first or try a different method.",
+  "email_doesn't_match": {
+    title: "Email Mismatch",
+    description: "The email on your Google account doesn't match your Quickspense account. Sign in with the same email you used to register.",
+  },
+  account_already_linked_to_different_user: {
+    title: "Account Already Linked",
+    description: "This Google account is already linked to a different Quickspense account. Try signing in with a different method.",
   },
   unknown_error: {
     title: "Something Went Wrong",
