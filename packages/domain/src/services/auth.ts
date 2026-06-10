@@ -47,6 +47,12 @@ export function createAuth(db: Database, env: AuthEnv) {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [env.BETTER_AUTH_URL],
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+      },
+    },
     socialProviders: {
       ...(env.GOOGLE_CLIENT_ID &&
         env.GOOGLE_CLIENT_SECRET && {
@@ -75,6 +81,9 @@ export function createAuth(db: Database, env: AuthEnv) {
         defaultKeyLength: 32,
       }),
     ],
+    onAPIError: {
+      errorURL: `${env.BETTER_AUTH_URL}/auth/error`,
+    },
     advanced: {
       database: {
         generateId: () => crypto.randomUUID(),

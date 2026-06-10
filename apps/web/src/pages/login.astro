@@ -97,6 +97,7 @@ if (Astro.locals.user) {
       const { error } = await authClient.signIn.social({
         provider: "google",
         callbackURL: "/dashboard",
+        errorCallbackURL: "/auth/error",
       });
       if (error) {
         showToast("error", error.message || "Google sign-in failed");
