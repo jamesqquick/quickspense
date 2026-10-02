@@ -1,0 +1,41 @@
+apps/web/package.json
+  s_0c11936ffa9a99::t_9c59b922f98d16 37
+apps/web/src/pages/api/invoices/index.ts
+  s_c7603359549d32::t_cd09103fd99348 52
+apps/web/test/invoiceCurrency.test.ts
+  s_a569b948a41006::t_13b85f4d35715c 1-151
+pnpm-lock.yaml
+  s_0c11936ffa9a99::t_91ad589ff2683b 32,88-90,597,601,2416,4343,5111,5113,5118,5120,5123,5125,5128,5130,5133,5135,6835-6841
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1b33343cd9e43ba20201ee44e1e16e66ab6d4b07",
+  "prompts": {},
+  "sessions": {
+    "s_0c11936ffa9a99": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f02fea186ffeowBAbSATPPWAEn",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "James Quick <jquick@cloudflare.com>"
+    },
+    "s_a569b948a41006": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f02d727edffeUQkUYTlSLiV5fG",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "James Quick <jquick@cloudflare.com>"
+    },
+    "s_c7603359549d32": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f02f69048ffeSTU7eiW6wpPPbA",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "James Quick <jquick@cloudflare.com>"
+    }
+  }
+}
