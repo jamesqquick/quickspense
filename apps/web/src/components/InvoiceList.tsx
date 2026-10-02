@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
+import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 
 const PAGE_SIZE = 20;
@@ -14,10 +15,6 @@ const FILTERS: { label: string; value: InvoiceStatus | "all" }[] = [
   { label: "Paid", value: "paid" },
   { label: "Void", value: "void" },
 ];
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
 
 export function InvoiceList() {
   const [items, setItems] = useState<Invoice[]>([]);
@@ -126,7 +123,7 @@ export function InvoiceList() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-white">
-                    ${formatCents(invoice.total)}
+                    {formatInvoiceMoney(invoice.total / 100, invoice.currency)}
                   </p>
                   <p className="text-xs text-slate-500">{invoice.currency}</p>
                 </div>

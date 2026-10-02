@@ -49,6 +49,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       client_email: parsed.data.client_email,
       client_address: parsed.data.client_address,
       notes: parsed.data.notes,
+      currency: parsed.data.currency,
       due_date: parsed.data.due_date,
       tax_amount: parsed.data.tax_amount,
       line_items: parsed.data.line_items,

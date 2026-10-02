@@ -1,4 +1,5 @@
 import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
+import { formatInvoiceMoney } from "./invoiceMoney";
 
 type SendEmail = {
   send(message: {
@@ -11,10 +12,6 @@ type SendEmail = {
     headers?: Record<string, string>;
   }): Promise<{ messageId: string }>;
 };
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
 
 function escapeHtml(s: string): string {
   return s
@@ -72,7 +69,7 @@ export async function sendInvoiceEmail(params: {
   const displayName = issuer.displayName;
 
   const payUrl = `${appUrl}/pay/${invoice.pay_token}`;
-  const totalFormatted = `$${formatCents(invoice.total)}`;
+  const totalFormatted = formatInvoiceMoney(invoice.total / 100, invoice.currency);
   const dueLine = `Due by ${invoice.due_date}.`;
 
   const lineItemsHtml = invoice.line_items
@@ -81,8 +78,8 @@ export async function sendInvoiceEmail(params: {
         <tr>
           <td style="padding:8px 0;border-bottom:1px solid #eee;">${escapeHtml(item.description)}</td>
           <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">${item.quantity}</td>
-          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">$${formatCents(item.unit_price)}</td>
-          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">$${formatCents(item.line_total)}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">${formatInvoiceMoney(item.unit_price / 100, invoice.currency)}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">${formatInvoiceMoney(item.line_total / 100, invoice.currency)}</td>
         </tr>
       `,
     )
@@ -139,8 +136,8 @@ export async function sendInvoiceEmail(params: {
         </thead>
         <tbody>${lineItemsHtml}</tbody>
         <tfoot>
-          <tr><td colspan="3" style="padding:8px 0;text-align:right;">Subtotal</td><td style="padding:8px 0;text-align:right;">$${formatCents(invoice.subtotal)}</td></tr>
-          <tr><td colspan="3" style="padding:8px 0;text-align:right;">Tax</td><td style="padding:8px 0;text-align:right;">$${formatCents(invoice.tax_amount)}</td></tr>
+          <tr><td colspan="3" style="padding:8px 0;text-align:right;">Subtotal</td><td style="padding:8px 0;text-align:right;">${formatInvoiceMoney(invoice.subtotal / 100, invoice.currency)}</td></tr>
+          <tr><td colspan="3" style="padding:8px 0;text-align:right;">Tax</td><td style="padding:8px 0;text-align:right;">${formatInvoiceMoney(invoice.tax_amount / 100, invoice.currency)}</td></tr>
           <tr><td colspan="3" style="padding:8px 0;text-align:right;font-weight:700;border-top:2px solid #111;">Total</td><td style="padding:8px 0;text-align:right;font-weight:700;border-top:2px solid #111;">${totalFormatted}</td></tr>
         </tfoot>
       </table>

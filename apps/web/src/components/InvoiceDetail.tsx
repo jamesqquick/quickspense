@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { navigateWithFlashToast } from "@/lib/flashToast";
+import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import {
   InvoiceForm,
@@ -21,12 +22,11 @@ type ConfirmState = {
   run: () => Promise<void>;
 };
 
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function invoiceToFormValues(invoice: InvoiceWithLineItems): InvoiceFormValues {
+export function invoiceToFormValues(
+  invoice: InvoiceWithLineItems,
+): InvoiceFormValues {
   return {
+    currency: invoice.currency,
     client_name: invoice.client_name,
     client_email: invoice.client_email,
     client_address: invoice.client_address ?? "",
@@ -452,10 +452,10 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
                     {item.quantity}
                   </td>
                   <td className="py-2 text-right text-slate-300">
-                    ${formatCents(item.unit_price)}
+                    {formatInvoiceMoney(item.unit_price / 100, invoice.currency)}
                   </td>
                   <td className="py-2 text-right text-white">
-                    ${formatCents(item.line_total)}
+                    {formatInvoiceMoney(item.line_total / 100, invoice.currency)}
                   </td>
                 </tr>
               ))}
@@ -466,15 +466,15 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         <div className="border-t border-white/10 pt-4 space-y-1 text-sm">
           <div className="flex justify-between text-slate-400">
             <span>Subtotal</span>
-            <span>${formatCents(invoice.subtotal)}</span>
+            <span>{formatInvoiceMoney(invoice.subtotal / 100, invoice.currency)}</span>
           </div>
           <div className="flex justify-between text-slate-400">
             <span>Tax</span>
-            <span>${formatCents(invoice.tax_amount)}</span>
+            <span>{formatInvoiceMoney(invoice.tax_amount / 100, invoice.currency)}</span>
           </div>
           <div className="flex justify-between text-white font-semibold text-base">
             <span>Total</span>
-            <span>${formatCents(invoice.total)}</span>
+            <span>{formatInvoiceMoney(invoice.total / 100, invoice.currency)}</span>
           </div>
         </div>
 

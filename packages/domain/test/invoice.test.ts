@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { createDb } from "../src/db/index.js";
 import { users } from "../src/db/schema.js";
+import { ValidationError } from "../src/errors.js";
+import { createInvoiceSchema, updateInvoiceSchema } from "../src/schema.js";
 import * as invoices from "../src/services/invoice.js";
 
 async function createTestUser(db: ReturnType<typeof createDb>, email: string) {
@@ -85,6 +87,8 @@ describe("invoices", () => {
     const db = createDb(env.DB);
     const user = await createTestUser(db, "user@test.com");
 
+    expect(createInvoiceSchema.parse(baseInvoice).currency).toBe("USD");
+
     const invoice = await invoices.createDraftInvoice(db, {
       userId: user.id,
       ...baseInvoice,
@@ -94,9 +98,61 @@ describe("invoices", () => {
     expect(invoice.subtotal).toBe(175000);
     expect(invoice.tax_amount).toBe(12500);
     expect(invoice.total).toBe(187500);
+    expect(invoice.currency).toBe("USD");
     expect(invoice.line_items).toHaveLength(2);
     expect(invoice.line_items[0].line_total).toBe(150000);
     expect(invoice.line_items[1].line_total).toBe(25000);
+  });
+
+  it("requires invoice line item quantities to be positive integers", () => {
+    const integerLineItem = {
+      description: "Consulting hours",
+      quantity: 2,
+      unit_price: 15000,
+    };
+    const fractionalLineItem = { ...integerLineItem, quantity: 1.5 };
+
+    expect(
+      createInvoiceSchema.safeParse({
+        ...baseInvoice,
+        line_items: [integerLineItem],
+      }).success,
+    ).toBe(true);
+    expect(
+      createInvoiceSchema.safeParse({
+        ...baseInvoice,
+        line_items: [fractionalLineItem],
+      }).success,
+    ).toBe(false);
+    expect(
+      createInvoiceSchema.safeParse({
+        ...baseInvoice,
+        line_items: [{ ...integerLineItem, quantity: 0 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateInvoiceSchema.safeParse({
+        line_items: [fractionalLineItem],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("creates and reads an invoice in EUR without converting minor-unit amounts", async () => {
+    const db = createDb(env.DB);
+    const user = await createTestUser(db, "eur@test.com");
+
+    const created = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+      currency: "EUR",
+    });
+    const fetched = await invoices.getInvoice(db, created.id, user.id);
+
+    expect(created.currency).toBe("EUR");
+    expect(fetched?.currency).toBe("EUR");
+    expect(fetched?.subtotal).toBe(175000);
+    expect(fetched?.tax_amount).toBe(12500);
+    expect(fetched?.total).toBe(187500);
   });
 
   it("assigns sequential invoice numbers per user", async () => {
@@ -398,6 +454,79 @@ describe("invoices", () => {
     expect(updated.subtotal).toBe(5000);
     expect(updated.tax_amount).toBe(0);
     expect(updated.total).toBe(5000);
+  });
+
+  it("allows changing a draft invoice currency to EUR", async () => {
+    const db = createDb(env.DB);
+    const user = await createTestUser(db, "update-currency@test.com");
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+
+    const updated = await invoices.updateDraftInvoice(db, invoice.id, user.id, {
+      currency: "EUR",
+    });
+
+    expect(updated.currency).toBe("EUR");
+    expect(updated.subtotal).toBe(invoice.subtotal);
+    expect(updated.total).toBe(invoice.total);
+  });
+
+  it("preserves invoice currency when a draft update omits currency", async () => {
+    const db = createDb(env.DB);
+    const user = await createTestUser(db, "preserve-currency@test.com");
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+      currency: "EUR",
+    });
+
+    const updated = await invoices.updateDraftInvoice(db, invoice.id, user.id, {
+      notes: "Keep the existing currency",
+    });
+
+    expect(updated.currency).toBe("EUR");
+  });
+
+  it("rejects invalid currency values in schemas and service inputs", async () => {
+    const db = createDb(env.DB);
+    const user = await createTestUser(db, "invalid-currency@test.com");
+    const invalidCurrencies = ["GBP", "", null] as const;
+
+    for (const currency of invalidCurrencies) {
+      expect(
+        createInvoiceSchema.safeParse({ ...baseInvoice, currency }).success,
+      ).toBe(false);
+      expect(updateInvoiceSchema.safeParse({ currency }).success).toBe(false);
+      await expect(
+        invoices.createDraftInvoice(
+          db,
+          { userId: user.id, ...baseInvoice, currency } as never,
+        ),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
+
+    expect((await invoices.listInvoices(db, user.id)).total).toBe(0);
+
+    const invoice = await invoices.createDraftInvoice(db, {
+      userId: user.id,
+      ...baseInvoice,
+    });
+    for (const currency of invalidCurrencies) {
+      await expect(
+        invoices.updateDraftInvoice(
+          db,
+          invoice.id,
+          user.id,
+          { currency } as never,
+        ),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
+
+    expect((await invoices.getInvoice(db, invoice.id, user.id))?.currency).toBe(
+      "USD",
+    );
   });
 
   it("getInvoice scopes by user", async () => {

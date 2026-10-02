@@ -1,3 +1,5 @@
+import type { InvoiceCurrency } from "./invoice-currency.js";
+
 export type ExpenseStatus =
   | "active"
   | "processing"
@@ -73,7 +75,7 @@ export type Invoice = {
   subtotal: number;
   tax_amount: number;
   total: number;
-  currency: string;
+  currency: InvoiceCurrency;
   notes: string | null;
   due_date: string;
   issued_at: string | null;

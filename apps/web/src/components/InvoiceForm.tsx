@@ -1,10 +1,19 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import type { InvoiceCurrency } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 import {
   InvoiceLineItemsEditor,
   emptyLineItem,
@@ -12,12 +21,13 @@ import {
 } from "./InvoiceLineItemsEditor";
 
 export type InvoiceFormValues = {
+  currency: InvoiceCurrency;
   client_name: string;
   client_email: string;
   client_address: string;
   due_date: string;
   notes: string;
-  tax_amount: string; // dollars
+  tax_amount: string; // major units
   line_items: LineItemDraft[];
 };
 
@@ -33,6 +43,7 @@ function defaultDueDate(daysFromNow = 30): string {
 
 export function emptyInvoiceForm(): InvoiceFormValues {
   return {
+    currency: "USD",
     client_name: "",
     client_email: "",
     client_address: "",
@@ -43,7 +54,7 @@ export function emptyInvoiceForm(): InvoiceFormValues {
   };
 }
 
-function dollarsToCents(value: string): number {
+function majorUnitsToMinorUnits(value: string): number {
   const n = parseFloat(value);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100);
@@ -51,16 +62,17 @@ function dollarsToCents(value: string): number {
 
 export function buildInvoicePayload(values: InvoiceFormValues) {
   return {
+    currency: values.currency,
     client_name: values.client_name.trim(),
     client_email: values.client_email.trim(),
     client_address: values.client_address.trim() || null,
     due_date: values.due_date,
     notes: values.notes.trim() || null,
-    tax_amount: dollarsToCents(values.tax_amount),
+    tax_amount: majorUnitsToMinorUnits(values.tax_amount),
     line_items: values.line_items.map((item) => ({
       description: item.description.trim(),
       quantity: parseFloat(item.quantity || "0") || 0,
-      unit_price: dollarsToCents(item.unit_price),
+      unit_price: majorUnitsToMinorUnits(item.unit_price),
     })),
   };
 }
@@ -124,7 +136,8 @@ export function InvoiceForm({
     for (const item of values.line_items) {
       if (!item.description.trim()) return "Each line item needs a description";
       const q = parseFloat(item.quantity);
-      if (!Number.isFinite(q) || q <= 0) return "Quantity must be greater than 0";
+      if (!Number.isInteger(q) || q <= 0)
+        return "Quantity must be a positive whole number";
       const p = parseFloat(item.unit_price);
       if (!Number.isFinite(p) || p < 0) return "Unit price must be 0 or greater";
     }
@@ -195,13 +208,31 @@ export function InvoiceForm({
 
       <Card className="p-6 space-y-4">
         <h2 className="text-sm font-semibold text-slate-300">Items</h2>
+        <div className="max-w-xs">
+          <Label htmlFor="invoice-currency">Currency</Label>
+          <Select
+            value={values.currency}
+            onValueChange={(currency) =>
+              update("currency", currency as InvoiceCurrency)
+            }
+          >
+            <SelectTrigger id="invoice-currency">
+              <SelectValue placeholder="Select currency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD ($)</SelectItem>
+              <SelectItem value="EUR">EUR (€)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <InvoiceLineItemsEditor
           items={values.line_items}
           onChange={(items) => update("line_items", items)}
+          currency={values.currency}
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div>
-            <Label>Tax amount (USD)</Label>
+            <Label>Tax amount ({values.currency})</Label>
             <Input
               type="number"
               step="0.01"
@@ -223,15 +254,15 @@ export function InvoiceForm({
         <div className="border-t border-white/10 pt-4 text-sm space-y-1">
           <div className="flex justify-between text-slate-400">
             <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>{formatInvoiceMoney(subtotal, values.currency)}</span>
           </div>
           <div className="flex justify-between text-slate-400">
             <span>Tax</span>
-            <span>${tax.toFixed(2)}</span>
+            <span>{formatInvoiceMoney(tax, values.currency)}</span>
           </div>
           <div className="flex justify-between font-semibold text-white">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>{formatInvoiceMoney(total, values.currency)}</span>
           </div>
         </div>
       </Card>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { invoiceCurrencySchema } from "./invoice-currency.js";
 
 export const createCategorySchema = z.object({
   name: z.string().min(1, "Category name is required").max(100),
@@ -85,7 +86,10 @@ export const invoiceStatusSchema = z.enum(["draft", "sent", "paid", "void"]);
 
 export const invoiceLineItemInputSchema = z.object({
   description: z.string().min(1, "Description is required").max(500),
-  quantity: z.number().positive("Quantity must be greater than 0"),
+  quantity: z
+    .number()
+    .int("Quantity must be a whole number")
+    .positive("Quantity must be greater than 0"),
   unit_price: z.number().int().nonnegative("Unit price must be 0 or greater"),
 });
 
@@ -94,6 +98,7 @@ export const createInvoiceSchema = z.object({
   client_email: z.string().email("Valid client email is required"),
   client_address: z.string().max(1000).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  currency: invoiceCurrencySchema.default("USD"),
   due_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Due date must be YYYY-MM-DD"),
@@ -108,6 +113,7 @@ export const updateInvoiceSchema = z.object({
   client_email: z.string().email().optional(),
   client_address: z.string().max(1000).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  currency: invoiceCurrencySchema.optional(),
   due_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

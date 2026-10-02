@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { InvoiceCurrency } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 
 type PublicInvoice = {
   invoice_number: string;
@@ -11,7 +13,7 @@ type PublicInvoice = {
   subtotal: number;
   tax_amount: number;
   total: number;
-  currency: string;
+  currency: InvoiceCurrency;
   notes: string | null;
   due_date: string;
   issued_at: string | null;
@@ -29,10 +31,6 @@ type PublicInvoice = {
     position: number;
   }>;
 };
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
 
 export function PublicInvoiceView({
   token,
@@ -198,10 +196,10 @@ export function PublicInvoiceView({
                     {item.quantity}
                   </td>
                   <td className="py-2 text-right text-slate-300">
-                    ${formatCents(item.unit_price)}
+                    {formatInvoiceMoney(item.unit_price / 100, invoice.currency)}
                   </td>
                   <td className="py-2 text-right text-white">
-                    ${formatCents(item.line_total)}
+                    {formatInvoiceMoney(item.line_total / 100, invoice.currency)}
                   </td>
                 </tr>
               ))}
@@ -212,15 +210,15 @@ export function PublicInvoiceView({
         <div className="border-t border-white/10 pt-4 space-y-1 text-sm">
           <div className="flex justify-between text-slate-400">
             <span>Subtotal</span>
-            <span>${formatCents(invoice.subtotal)}</span>
+            <span>{formatInvoiceMoney(invoice.subtotal / 100, invoice.currency)}</span>
           </div>
           <div className="flex justify-between text-slate-400">
             <span>Tax</span>
-            <span>${formatCents(invoice.tax_amount)}</span>
+            <span>{formatInvoiceMoney(invoice.tax_amount / 100, invoice.currency)}</span>
           </div>
           <div className="flex justify-between text-white font-semibold text-base">
             <span>Total due</span>
-            <span>${formatCents(invoice.total)}</span>
+            <span>{formatInvoiceMoney(invoice.total / 100, invoice.currency)}</span>
           </div>
         </div>
 
@@ -239,7 +237,9 @@ export function PublicInvoiceView({
       <div className="flex flex-col items-center gap-3">
         {isPayable && (
           <Button size="lg" onClick={startCheckout} disabled={paying}>
-            {paying ? "Redirecting..." : `Pay $${formatCents(invoice.total)}`}
+            {paying
+              ? "Redirecting..."
+              : `Pay ${formatInvoiceMoney(invoice.total / 100, invoice.currency)}`}
           </Button>
         )}
         {isPaid && (
