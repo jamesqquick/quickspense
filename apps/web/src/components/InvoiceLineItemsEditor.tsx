@@ -1,12 +1,14 @@
+import type { InvoiceCurrency } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 import { Trash2, Plus } from "lucide-react";
 
 export type LineItemDraft = {
   description: string;
   quantity: string;
-  unit_price: string; // dollars as string for input control
+  unit_price: string; // major units as string for input control
 };
 
 export function emptyLineItem(): LineItemDraft {
@@ -16,9 +18,11 @@ export function emptyLineItem(): LineItemDraft {
 export function InvoiceLineItemsEditor({
   items,
   onChange,
+  currency,
 }: {
   items: LineItemDraft[];
   onChange: (items: LineItemDraft[]) => void;
+  currency: InvoiceCurrency;
 }) {
   const update = (index: number, patch: Partial<LineItemDraft>) => {
     const next = items.map((item, i) =>
@@ -61,14 +65,16 @@ export function InvoiceLineItemsEditor({
                 <Label className="text-xs text-slate-400">Qty</Label>
                 <Input
                   type="number"
-                  step="0.01"
-                  min="0"
+                  step="1"
+                  min="1"
                   value={item.quantity}
                   onChange={(e) => update(i, { quantity: e.target.value })}
                 />
               </div>
               <div className="col-span-4 sm:col-span-2">
-                <Label className="text-xs text-slate-400">Unit Price</Label>
+                <Label className="text-xs text-slate-400">
+                  Unit Price ({currency})
+                </Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -78,9 +84,11 @@ export function InvoiceLineItemsEditor({
                 />
               </div>
               <div className="col-span-3 sm:col-span-2">
-                <Label className="text-xs text-slate-400">Total</Label>
+                <Label className="text-xs text-slate-400">
+                  Total ({currency})
+                </Label>
                 <div className="px-3 py-2 text-sm text-white">
-                  ${total.toFixed(2)}
+                  {formatInvoiceMoney(total, currency)}
                 </div>
               </div>
               <div className="col-span-1 flex justify-end pt-5">

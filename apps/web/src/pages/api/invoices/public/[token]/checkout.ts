@@ -61,7 +61,9 @@ export const POST: APIRoute = async ({ params, locals }) => {
     }
 
     const currency = invoice.currency.toLowerCase();
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+    const lineItems: NonNullable<
+      NonNullable<Parameters<typeof stripe.checkout.sessions.create>[0]>["line_items"]
+    > = [];
 
     for (const item of invoice.line_items) {
       lineItems.push({

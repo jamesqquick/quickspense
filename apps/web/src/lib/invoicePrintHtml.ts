@@ -2,6 +2,7 @@ import type {
   BusinessProfile,
   InvoiceWithLineItems,
 } from "@quickspense/domain";
+import { formatInvoiceMoney } from "./invoiceMoney";
 
 export type RenderInvoiceOptions = {
   /** Used as the issuer name when the user has no business profile yet. */
@@ -26,10 +27,6 @@ const ESCAPE_LOOKUP: Record<string, string> = {
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (ch) => ESCAPE_LOOKUP[ch] ?? ch);
-}
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
 }
 
 function statusLabel(status: InvoiceWithLineItems["status"]): string {
@@ -76,8 +73,8 @@ export function renderInvoicePrintHtml(
         <tr>
           <td class="desc">${escapeHtml(item.description)}</td>
           <td class="num">${item.quantity}</td>
-          <td class="num">$${formatCents(item.unit_price)}</td>
-          <td class="num">$${formatCents(item.line_total)}</td>
+          <td class="num">${formatInvoiceMoney(item.unit_price / 100, invoice.currency)}</td>
+          <td class="num">${formatInvoiceMoney(item.line_total / 100, invoice.currency)}</td>
         </tr>`,
     )
     .join("");
@@ -330,15 +327,15 @@ export function renderInvoicePrintHtml(
       <div class="totals">
         <div class="row">
           <span>Subtotal</span>
-          <span>$${formatCents(invoice.subtotal)}</span>
+          <span>${formatInvoiceMoney(invoice.subtotal / 100, invoice.currency)}</span>
         </div>
         <div class="row">
           <span>Tax</span>
-          <span>$${formatCents(invoice.tax_amount)}</span>
+          <span>${formatInvoiceMoney(invoice.tax_amount / 100, invoice.currency)}</span>
         </div>
         <div class="row total">
           <span>Total ${escapeHtml(invoice.currency.toUpperCase())}</span>
-          <span>$${formatCents(invoice.total)}</span>
+          <span>${formatInvoiceMoney(invoice.total / 100, invoice.currency)}</span>
         </div>
       </div>
 

@@ -9,11 +9,14 @@ import type {
   InvoiceWithLineItems,
   PaginatedResult,
 } from "../types.js";
+import type { InvoiceCurrency } from "../invoice-currency.js";
 import {
   ConflictError,
   InvalidStateTransitionError,
   NotFoundError,
+  ValidationError,
 } from "../errors.js";
+import { invoiceCurrencySchema } from "../invoice-currency.js";
 
 /**
  * Result of attempting to mark an invoice paid via the Stripe webhook.
@@ -46,6 +49,7 @@ export type InvoiceLineItemInput = {
 
 export type CreateInvoiceInput = {
   userId: string;
+  currency?: InvoiceCurrency;
   client_name: string;
   client_email: string;
   client_address?: string | null;
@@ -56,6 +60,7 @@ export type CreateInvoiceInput = {
 };
 
 export type UpdateInvoiceInput = {
+  currency?: InvoiceCurrency;
   client_name?: string;
   client_email?: string;
   client_address?: string | null;
@@ -107,7 +112,7 @@ function generatePayToken(): string {
 }
 
 function computeLineTotal(item: InvoiceLineItemInput): number {
-  // Round to nearest cent. quantity may be fractional.
+  // Round to nearest cent.
   return Math.round(item.quantity * item.unit_price);
 }
 
@@ -115,10 +120,22 @@ function computeSubtotal(items: InvoiceLineItemInput[]): number {
   return items.reduce((acc, item) => acc + computeLineTotal(item), 0);
 }
 
+function validateInvoiceCurrency(currency: unknown): InvoiceCurrency {
+  const result = invoiceCurrencySchema.safeParse(currency);
+  if (!result.success) {
+    throw new ValidationError("Invoice currency must be USD or EUR");
+  }
+  return result.data;
+}
+
 export async function createDraftInvoice(
   db: Database,
   input: CreateInvoiceInput,
 ): Promise<InvoiceWithLineItems> {
+  const currency =
+    input.currency === undefined
+      ? "USD"
+      : validateInvoiceCurrency(input.currency);
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const taxAmount = input.tax_amount ?? 0;
@@ -146,7 +163,7 @@ export async function createDraftInvoice(
           subtotal,
           tax_amount: taxAmount,
           total,
-          currency: "USD",
+          currency,
           notes: input.notes ?? null,
           due_date: input.due_date,
           created_at: now,
@@ -261,6 +278,10 @@ export async function updateDraftInvoice(
   userId: string,
   fields: UpdateInvoiceInput,
 ): Promise<InvoiceWithLineItems> {
+  const currency =
+    fields.currency === undefined
+      ? undefined
+      : validateInvoiceCurrency(fields.currency);
   const existing = await getInvoice(db, invoiceId, userId);
   if (!existing) throw new NotFoundError("Invoice", invoiceId);
   if (existing.status !== "draft") {
@@ -279,6 +300,7 @@ export async function updateDraftInvoice(
   if (fields.notes !== undefined) updates.notes = fields.notes;
   if (fields.due_date !== undefined) updates.due_date = fields.due_date;
   if (fields.tax_amount !== undefined) updates.tax_amount = fields.tax_amount;
+  if (currency !== undefined) updates.currency = currency;
 
   if (newLineItems) {
     const subtotal = computeSubtotal(newLineItems);
