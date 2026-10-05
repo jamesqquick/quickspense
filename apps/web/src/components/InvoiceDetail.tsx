@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { actions } from "astro:actions";
 import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { navigateWithFlashToast } from "@/lib/flashToast";
 import { formatInvoiceMoney } from "@/lib/invoiceMoney";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import {
   InvoiceForm,
@@ -88,7 +90,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to update invoice");
+      throw new Error(getApiErrorMessage(data, "Failed to update invoice"));
     }
     const updated = (await res.json()) as InvoiceWithLineItems;
     setInvoice(updated);
@@ -105,10 +107,12 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       const res = await fetch(path, { method });
       if (!res.ok && res.status !== 204) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Action failed");
+        throw new Error(getApiErrorMessage(data, "Action failed"));
       }
-      if (path.endsWith("/send") || path.endsWith("/void")) {
-        const data = await res.json().catch(() => null);
+      if (path.endsWith("/send")) {
+        const data = (await res.json().catch(() => null)) as
+          | (InvoiceWithLineItems & { dev_email_skipped?: boolean; dev_pay_url?: string })
+          | null;
         if (data) {
           if (data.dev_email_skipped && data.dev_pay_url) {
             setDevEmailSkipped(data.dev_pay_url);
@@ -118,7 +122,6 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           setInvoice(data);
         } else load();
         if (path.endsWith("/send")) toast.success("Invoice sent");
-        if (path.endsWith("/void")) toast.success("Invoice voided");
       } else if (method === "DELETE") {
         navigateWithFlashToast("/invoices", "success", "Invoice deleted");
         return;
@@ -127,6 +130,23 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const performVoid = async () => {
+    setActionPending(true);
+    try {
+      const { error } = await actions.invoice.void({ id: invoiceId });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Invoice voided");
+      await load();
+    } catch {
+      toast.error("Invoice void confirmation is pending. Please retry shortly.");
     } finally {
       setActionPending(false);
     }
@@ -150,7 +170,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
         "Voiding marks the invoice as cancelled. The pay link will stop working.",
       confirmLabel: "Void invoice",
       variant: "destructive",
-      run: () => performAction(`/api/invoices/${invoiceId}/void`),
+      run: performVoid,
     });
   };
 

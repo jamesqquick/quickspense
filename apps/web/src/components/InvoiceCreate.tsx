@@ -1,5 +1,7 @@
 import { InvoiceForm, buildInvoicePayload, type InvoiceFormValues } from "./InvoiceForm";
 import { navigateWithFlashToast } from "@/lib/flashToast";
+import { getApiErrorMessage } from "@/lib/apiError";
+import type { InvoiceWithLineItems } from "@quickspense/domain";
 
 async function createInvoice(values: InvoiceFormValues) {
   const res = await fetch("/api/invoices", {
@@ -9,16 +11,16 @@ async function createInvoice(values: InvoiceFormValues) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to create invoice");
+    throw new Error(getApiErrorMessage(data, "Failed to create invoice"));
   }
-  return res.json();
+  return (await res.json()) as InvoiceWithLineItems;
 }
 
 async function sendInvoice(id: string) {
   const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to send invoice");
+    throw new Error(getApiErrorMessage(data, "Failed to send invoice"));
   }
 }
 

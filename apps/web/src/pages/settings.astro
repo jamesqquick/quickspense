@@ -4,17 +4,198 @@ import { BusinessProfileForm } from "../components/BusinessProfileForm";
 import { TokenManager } from "../components/TokenManager";
 import { McpConnectionInfo } from "../components/McpConnectionInfo";
 import { DangerZone } from "../components/DangerZone";
+import {
+  StripeConnectionCard,
+  type StripeConnectionView,
+} from "../components/StripeConnectionCard";
+import { createDb, stripeConnections } from "@quickspense/domain";
+import { createStripeClient } from "../lib/stripe";
+import {
+  deriveStripeLivemode,
+  getStripeConnectRedirectUri,
+} from "../lib/stripeConnect";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/login");
 }
 
 const user = Astro.locals.user;
+const env = Astro.locals.runtime.env;
+const db = createDb(env.DB);
+let connectConfigured = false;
+let disconnectConfigured = false;
+let expectedLivemode: boolean | null = null;
+let persistedConnection: Awaited<
+  ReturnType<typeof stripeConnections.getCurrentUiConnection>
+> = null;
+let stripeConnection: StripeConnectionView | null = null;
+let stripeRecoveryState: "authorized" | "unconfirmed" | null = null;
+
+const [connectionResult, recoveryResult] = await Promise.allSettled([
+  stripeConnections.getCurrentUiConnection(db, user.id),
+  stripeConnections.getCurrentAuthorizedOperation(db, user.id),
+]);
+if (connectionResult.status === "fulfilled") {
+  persistedConnection = connectionResult.value;
+} else {
+  Astro.locals.logger.error("Stripe connection status could not be loaded");
+}
+if (recoveryResult.status === "fulfilled") {
+  stripeRecoveryState = recoveryResult.value
+    ? recoveryResult.value.phase === "authorized" &&
+      recoveryResult.value.stripeAccountId
+      ? "authorized"
+      : "unconfirmed"
+    : null;
+} else {
+  Astro.locals.logger.error("Stripe connection recovery status could not be loaded");
+}
+
+let stripeClientConfigured = false;
+if (env.STRIPE_SECRET_KEY) {
+  try {
+    expectedLivemode = deriveStripeLivemode(env.STRIPE_SECRET_KEY);
+    createStripeClient(env);
+    stripeClientConfigured = true;
+  } catch {
+    Astro.locals.logger.error("Stripe Connect configuration is invalid");
+  }
+}
+
+if (stripeClientConfigured && env.STRIPE_CONNECT_CLIENT_ID) {
+  disconnectConfigured = true;
+  if (env.APP_URL) {
+    try {
+      getStripeConnectRedirectUri(env.APP_URL, expectedLivemode ?? false);
+      connectConfigured = true;
+    } catch {
+      Astro.locals.logger.error("Stripe Connect callback URL is invalid");
+    }
+  }
+}
+
+if (persistedConnection) {
+  try {
+    const status = stripeConnections.getConnectionStatus(
+      persistedConnection,
+      expectedLivemode,
+    );
+    stripeConnection = {
+      id: status.id,
+      stripe_account_suffix: status.stripe_account_id.slice(-4),
+      livemode: status.livemode,
+      charges_enabled: status.charges_enabled,
+      payouts_enabled: status.payouts_enabled,
+      details_submitted: status.details_submitted,
+      requirements: status.requirements,
+      stripe_status_at: status.stripe_status_at,
+      disconnect_pending: status.disconnect_pending,
+      mode_matches: status.mode_matches,
+      ready: status.ready,
+    };
+    disconnectConfigured = disconnectConfigured && status.mode_matches;
+  } catch {
+    Astro.locals.logger.error("Stripe connection status could not be loaded");
+  }
+}
+
+const stripeNotices: Record<string, { tone: string; message: string }> = {
+  connected: {
+    tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+    message: "Stripe account connected.",
+  },
+  recovered: {
+    tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+    message: "Stripe connection recovered.",
+  },
+  refreshed: {
+    tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+    message: "Stripe status refreshed.",
+  },
+  disconnected: {
+    tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+    message: "Stripe account disconnected.",
+  },
+  already_connected: {
+    tone: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    message: "Disconnect the current Stripe account before connecting another account.",
+  },
+  disconnect_pending: {
+    tone: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    message: "Finish the pending Stripe disconnect before connecting an account.",
+  },
+  operation_in_progress: {
+    tone: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    message: "A Stripe connection change is already in progress.",
+  },
+  access_denied: {
+    tone: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    message: "Stripe connection was canceled.",
+  },
+  invalid_state: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "That Stripe connection request expired. Please try again.",
+  },
+  conflict: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "That Stripe account is already connected to another user.",
+  },
+  mode_mismatch: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe returned an account in the wrong payment mode.",
+  },
+  configuration: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe Connect is not configured correctly.",
+  },
+  unavailable: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe is temporarily unavailable. Please try again.",
+  },
+  authorization_unconfirmed: {
+    tone: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+    message:
+      "Stripe/support verification is needed for this unknown authorization. Connection changes remain blocked.",
+  },
+  oauth_invalid: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe returned an invalid authorization response.",
+  },
+  account_invalid: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe returned an account that could not be connected.",
+  },
+  oauth_error: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe could not be connected. Please try again.",
+  },
+  unknown: {
+    tone: "border-red-500/25 bg-red-500/10 text-red-200",
+    message: "Stripe could not be connected. Please try again.",
+  },
+};
+const stripeNotice = stripeNotices[Astro.url.searchParams.get("stripe") ?? ""];
 ---
 
 <Layout>
   <h1 class="text-2xl font-bold text-white mb-6">Settings</h1>
   <div class="max-w-2xl space-y-10">
+    <section>
+      <h2 class="text-lg font-semibold text-white mb-4">Payments</h2>
+      {stripeNotice && (
+        <p class={`mb-4 rounded-xl border p-3 text-sm ${stripeNotice.tone}`}>
+          {stripeNotice.message}
+        </p>
+      )}
+      <StripeConnectionCard
+        connectConfigured={connectConfigured}
+        disconnectConfigured={disconnectConfigured}
+        refreshConfigured={stripeClientConfigured}
+        connection={stripeConnection}
+        recoveryState={stripeRecoveryState}
+        client:load
+      />
+    </section>
     <section>
       <h2 class="text-lg font-semibold text-white mb-4">Business Profile</h2>
       <BusinessProfileForm client:load />

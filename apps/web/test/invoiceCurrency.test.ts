@@ -1,5 +1,8 @@
 import type { InvoiceWithLineItems } from "@quickspense/domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { invoiceFixture } from "./helpers/invoicePayment";
+
+vi.mock("astro:actions", () => ({ actions: { invoice: { void: vi.fn() } } }));
 import { invoiceToFormValues } from "../src/components/InvoiceDetail";
 import {
   buildInvoicePayload,
@@ -10,6 +13,7 @@ import { formatInvoiceMoney } from "../src/lib/invoiceMoney";
 import { renderInvoicePrintHtml } from "../src/lib/invoicePrintHtml";
 
 const euroInvoice = {
+  ...invoiceFixture(),
   id: "invoice-1",
   user_id: "user-1",
   invoice_number: "INV-2026-001",

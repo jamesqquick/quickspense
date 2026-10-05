@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConflictError } from "@quickspense/domain";
+import { payToken, paymentEnv } from "./helpers/invoicePayment";
 
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({})),
   createDraftInvoice: vi.fn(),
   updateDraftInvoice: vi.fn(),
-  getInvoiceByPayToken: vi.fn(),
-  attachStripeSession: vi.fn(),
-  createStripeSession: vi.fn(),
+  payInvoice: vi.fn(),
 }));
 
 vi.mock("@quickspense/domain", async (importOriginal) => {
@@ -19,17 +19,11 @@ vi.mock("@quickspense/domain", async (importOriginal) => {
       ...actual.invoices,
       createDraftInvoice: mocks.createDraftInvoice,
       updateDraftInvoice: mocks.updateDraftInvoice,
-      getInvoiceByPayToken: mocks.getInvoiceByPayToken,
-      attachStripeSession: mocks.attachStripeSession,
     },
   };
 });
 
-vi.mock("@/lib/stripe", () => ({
-  createStripeClient: vi.fn(() => ({
-    checkout: { sessions: { create: mocks.createStripeSession } },
-  })),
-}));
+vi.mock("@/lib/invoiceCheckout", () => ({ payInvoice: mocks.payInvoice }));
 
 import { PATCH } from "../src/pages/api/invoices/[id]";
 import { POST } from "../src/pages/api/invoices/index";
@@ -91,6 +85,30 @@ describe("POST /api/invoices", () => {
       currency: "EUR",
     });
   });
+  it("returns 409 when sending wins a concurrent draft edit", async () => {
+    mocks.updateDraftInvoice.mockRejectedValueOnce(
+      new ConflictError("Only draft invoices can be edited"),
+    );
+    const error = vi.fn();
+
+    const response = await PATCH({
+      params: { id: "invoice-id" },
+      request: new Request("https://example.com/api/invoices/invoice-id", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency: "EUR" }),
+      }),
+      locals: {
+        user: { id: "user-id" },
+        runtime: { env: { DB: {} } },
+        logger: { error },
+      },
+    } as Parameters<typeof PATCH>[0]);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "Only draft invoices can be edited" });
+    expect(error).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/invoices/public/:token/checkout", () => {
@@ -98,59 +116,21 @@ describe("POST /api/invoices/public/:token/checkout", () => {
     vi.clearAllMocks();
   });
 
-  it("creates a Stripe Checkout Session in the invoice currency", async () => {
-    mocks.getInvoiceByPayToken.mockResolvedValue({
-      id: "invoice-id",
-      status: "sent",
-      currency: "EUR",
-      client_email: "client@example.com",
-      tax_amount: 250,
-      line_items: [
-        {
-          description: "Consulting",
-          quantity: 2,
-          unit_price: 6250,
-        },
-      ],
-    });
-    mocks.createStripeSession.mockResolvedValue({
-      id: "session-id",
-      url: "https://checkout.example/session",
-    });
+  it("delegates Checkout creation to the shared connected-payment service", async () => {
+    const result = { status: "checkout", url: "https://checkout.stripe.com/c/pay/session" };
+    mocks.payInvoice.mockResolvedValue(result);
+    const env = { ...paymentEnv, DB: {} };
 
     const response = await checkout({
-      params: { token: "invoice-test-token" },
+      params: { token: payToken },
       locals: {
-        runtime: {
-          env: {
-            DB: {},
-            STRIPE_SECRET_KEY: "test-configuration",
-            APP_URL: "https://quickspense.example",
-          },
-        },
+        runtime: { env },
         logger: { error: vi.fn() },
       },
     } as Parameters<typeof checkout>[0]);
 
     expect(response.status).toBe(200);
-    expect(mocks.createStripeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        line_items: expect.arrayContaining([
-          expect.objectContaining({
-            quantity: 2,
-            price_data: expect.objectContaining({
-              currency: "eur",
-              unit_amount: 6250,
-            }),
-          }),
-          expect.objectContaining({
-            price_data: expect.objectContaining({
-              currency: "eur",
-              unit_amount: 250,
-            }),
-          }),
-        ]),
-      }),
-    );
+    expect(await response.json()).toEqual(result);
+    expect(mocks.payInvoice).toHaveBeenCalledWith(mocks.createDb.mock.results[0]?.value, { payToken }, env);
   });
 });

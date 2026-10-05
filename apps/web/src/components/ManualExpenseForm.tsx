@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { Category } from "@quickspense/domain";
 import { ExpenseForm, type ExpenseFormValues } from "./ExpenseForm";
 import { Card } from "@/components/ui/card";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 /**
  * Standalone manual expense create form for the `/expenses/new` page.
@@ -13,7 +14,7 @@ export function ManualExpenseForm() {
 
   useEffect(() => {
     fetch("/api/categories")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() as Promise<Category[]> : []))
       .then(setCategories)
       .catch(() => setCategories([]));
   }, []);
@@ -51,7 +52,7 @@ export function ManualExpenseForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to create expense");
+      throw new Error(getApiErrorMessage(data, "Failed to create expense"));
     }
 
     toast.success("Expense created");

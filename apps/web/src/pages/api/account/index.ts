@@ -1,5 +1,10 @@
 import type { APIRoute } from "astro";
-import { deleteUser, createDb } from "@quickspense/domain";
+import {
+  ConflictError,
+  createDb,
+  deleteUser,
+  stripeConnections,
+} from "@quickspense/domain";
 
 export const DELETE: APIRoute = async ({ locals, request }) => {
   const user = locals.user!;
@@ -10,16 +15,35 @@ export const DELETE: APIRoute = async ({ locals, request }) => {
   logger.warn("Account deletion requested");
 
   try {
-    // Sign out via Better Auth to clear the session cookie properly
-    try {
-      await locals.auth.api.signOut({ headers: request.headers });
-    } catch {
-      // Best-effort; the user row cascade will clean sessions anyway
+    const deletionBlock = await stripeConnections.getAccountDeletionBlock(
+      db,
+      user.id,
+    );
+    if (deletionBlock) {
+      logger.warn("Account deletion blocked by Stripe connection state", {
+        reason: deletionBlock,
+      });
+      return new Response(
+        JSON.stringify({
+          error:
+            deletionBlock === "outstanding_payments"
+              ? "Resolve sent invoices and pending Stripe payments before deleting your account."
+              : "Disconnect Stripe and resolve any pending connection work before deleting your account.",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     // Remove user from D1 (cascades to all user-owned tables).
     // Returns the list of R2 file keys to clean up.
     const { fileKeys } = await deleteUser(db, user.id);
+
+    // Best-effort cookie cleanup; deleting the user already cascaded sessions.
+    try {
+      await locals.auth.api.signOut({ headers: request.headers });
+    } catch {
+      // The deleted session can make the auth-layer signout a no-op.
+    }
 
     // Clean up R2 objects. Best-effort: if any fail, we've already deleted
     // the D1 rows so the files are orphaned but no longer linked to a user.
@@ -44,6 +68,12 @@ export const DELETE: APIRoute = async ({ locals, request }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: unknown) {
+    if (e instanceof ConflictError) {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     logger.error("Account deletion failed", { error: e });
     return new Response(
       JSON.stringify({ error: "Failed to delete account" }),

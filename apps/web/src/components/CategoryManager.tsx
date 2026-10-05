@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -45,7 +46,7 @@ export function CategoryManager() {
       fetchCategories();
     } else {
       const data = await res.json();
-      toast.error(data.error || "Failed to create category");
+      toast.error(getApiErrorMessage(data, "Failed to create category"));
     }
   };
 
@@ -65,7 +66,7 @@ export function CategoryManager() {
       fetchCategories();
     } else {
       const data = await res.json();
-      toast.error(data.error || "Failed to update category");
+      toast.error(getApiErrorMessage(data, "Failed to update category"));
     }
   };
 
@@ -78,7 +79,7 @@ export function CategoryManager() {
       fetchCategories();
     } else {
       const data = await res.json();
-      toast.error(data.error || "Failed to delete category");
+      toast.error(getApiErrorMessage(data, "Failed to delete category"));
     }
   };
 
@@ -130,7 +131,7 @@ export function CategoryManager() {
               className="rounded-xl p-3 flex items-center justify-between"
             >
               <span className="text-white">{cat.name}</span>
-              <Badge variant="secondary" className="text-xs">Default</Badge>
+              <Badge variant="muted" className="text-xs">Default</Badge>
             </Card>
           ))}
         </div>

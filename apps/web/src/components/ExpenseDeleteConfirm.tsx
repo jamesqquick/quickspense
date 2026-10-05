@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Expense } from "@quickspense/domain";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,7 +38,7 @@ export function ExpenseDeleteConfirm({
         onConfirm();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to delete expense");
+        toast.error(getApiErrorMessage(data, "Failed to delete expense"));
       }
     } catch {
       toast.error("Failed to delete expense");

@@ -6,6 +6,7 @@ import type {
   ParsedExpense,
   Category,
   ExpenseStatusUpdate,
+  ExpenseWithParsedData,
 } from "@quickspense/domain";
 import { EXPENSE_PROGRESS_STEPS, EXPENSE_STEP_LABELS } from "@quickspense/domain";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
@@ -22,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2 } from "lucide-react";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 type Props = {
   expenseId: string;
@@ -110,7 +112,7 @@ export function ExpenseReview({ expenseId }: Props) {
     try {
       const res = await fetch(`/api/expenses/${expenseId}`);
       if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
+      const data = (await res.json()) as ExpenseWithParsedData;
       setExpense(data.expense);
       setParsed(data.parsed);
       populateFromExpense(data.expense, data.parsed);
@@ -124,7 +126,7 @@ export function ExpenseReview({ expenseId }: Props) {
   useEffect(() => {
     // Categories first so we can map suggested_category name -> id
     fetch("/api/categories")
-      .then((res) => (res.ok ? res.json() : []))
+      .then((res) => (res.ok ? res.json() as Promise<Category[]> : []))
       .then((data: Category[]) => {
         setCategoryList(data);
         fetchData().then(() => {
@@ -273,7 +275,7 @@ export function ExpenseReview({ expenseId }: Props) {
         await fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Approve failed");
+        toast.error(getApiErrorMessage(data, "Approve failed"));
       }
     } catch {
       toast.error("Approve failed");
@@ -306,7 +308,7 @@ export function ExpenseReview({ expenseId }: Props) {
         await fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Save failed");
+        toast.error(getApiErrorMessage(data, "Save failed"));
       }
     } catch {
       toast.error("Save failed");
@@ -326,7 +328,7 @@ export function ExpenseReview({ expenseId }: Props) {
         await fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Retry failed");
+        toast.error(getApiErrorMessage(data, "Retry failed"));
       }
     } catch {
       toast.error("Retry failed");

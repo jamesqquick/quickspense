@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 type ApiToken = { id: string; name: string; created_at: string };
 
@@ -43,14 +44,14 @@ export function TokenManager() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as { token: string; tokenId: string };
         setNewToken(data.token);
         setNewName("");
         toast.success("Token created");
         fetchTokens();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to create token");
+        toast.error(getApiErrorMessage(data, "Failed to create token"));
       }
     } catch {
       toast.error("Failed to create token");

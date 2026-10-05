@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Expense, ExpenseSummary } from "@quickspense/domain";
+import type { Expense, ExpenseSummary, PaginatedResult } from "@quickspense/domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -26,12 +26,12 @@ export function DashboardSummary() {
         ]);
 
         if (recentRes.ok) {
-          const data = await recentRes.json();
+          const data = (await recentRes.json()) as PaginatedResult<Expense>;
           setRecentExpenses(data.items);
         }
         if (summaryRes.ok) setSummary(await summaryRes.json());
         if (reviewRes.ok) {
-          const data = await reviewRes.json();
+          const data = (await reviewRes.json()) as PaginatedResult<Expense>;
           setNeedsReview(data.items);
         }
         if (countsRes.ok) setStatusCounts(await countsRes.json());

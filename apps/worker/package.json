@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev --persist-to=../../.wrangler",
     "build": "wrangler deploy --dry-run --outdir=dist",
+    "check": "tsc --noEmit",
     "deploy": "wrangler deploy --dry-run --outdir=dist && wrangler deploy",
     "preview": "wrangler versions upload --dry-run --outdir=dist"
   },

@@ -1,7 +1,12 @@
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../db/index.js";
-import { invoices, invoiceLineItems } from "../db/schema.js";
+import {
+  invoices,
+  invoiceLineItems,
+  stripeConnections,
+} from "../db/schema.js";
+import { beginInvoiceVoid, finalizeInvoiceVoid } from "./invoicePayment.js";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -13,6 +18,7 @@ import type { InvoiceCurrency } from "../invoice-currency.js";
 import {
   ConflictError,
   InvalidStateTransitionError,
+  NoReadyStripeConnectionError,
   NotFoundError,
   ValidationError,
 } from "../errors.js";
@@ -307,36 +313,39 @@ export async function updateDraftInvoice(
     const total = subtotal + taxAmount;
     updates.subtotal = subtotal;
     updates.total = total;
+  } else if (fields.tax_amount !== undefined) {
+    updates.total = existing.subtotal + taxAmount;
+  }
 
-    const ops = [
-      db
-        .update(invoices)
-        .set(updates)
-        .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId))),
-      db.delete(invoiceLineItems).where(eq(invoiceLineItems.invoice_id, invoiceId)),
+  const editable = and(
+    eq(invoices.id, invoiceId),
+    eq(invoices.user_id, userId),
+    eq(invoices.status, "draft"),
+  )!;
+  const update = db.update(invoices).set(updates).where(editable)
+    .returning({ id: invoices.id });
+  let updatedIds: { id: string }[];
+
+  if (newLineItems) {
+    [updatedIds] = await db.batch([
+      update,
+      db.delete(invoiceLineItems).where(and(
+        eq(invoiceLineItems.invoice_id, invoiceId),
+        sql`EXISTS (SELECT 1 FROM ${invoices} WHERE ${editable})`,
+      )),
       ...newLineItems.map((item, idx) =>
-        db.insert(invoiceLineItems).values({
-          id: crypto.randomUUID(),
-          invoice_id: invoiceId,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          line_total: computeLineTotal(item),
-          position: idx,
-          created_at: now,
-        }),
+        db.insert(invoiceLineItems).select(sql`
+          SELECT ${crypto.randomUUID()}, ${invoices.id}, ${item.description},
+            ${item.quantity}, ${item.unit_price}, ${computeLineTotal(item)}, ${idx}, ${now}
+          FROM ${invoices} WHERE ${editable}
+        `),
       ),
-    ];
-    await db.batch(ops as [typeof ops[number], ...typeof ops]);
+    ]);
   } else {
-    // No line item changes; if tax changed we still need to recompute total
-    if (fields.tax_amount !== undefined) {
-      updates.total = existing.subtotal + taxAmount;
-    }
-    await db
-      .update(invoices)
-      .set(updates)
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+    [updatedIds] = await db.batch([update]);
+  }
+  if (updatedIds.length !== 1) {
+    throw new ConflictError("Only draft invoices can be edited");
   }
 
   const updated = await getInvoice(db, invoiceId, userId);
@@ -363,9 +372,15 @@ export async function deleteInvoice(
       "Only draft or void invoices can be deleted. Void the invoice first.",
     );
   }
-  await db
+  const deleted = await db
     .delete(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId),
+      sql`${invoices.status} IN ('draft', 'void') AND ${invoices.stripe_void_pending} = 0`,
+      sql`NOT EXISTS (SELECT 1 FROM invoice_checkout_attempts a WHERE a.invoice_id = ${invoices.id})`,
+      sql`NOT EXISTS (SELECT 1 FROM stripe_webhook_events e WHERE e.invoice_id = ${invoices.id})`,
+      sql`NOT EXISTS (SELECT 1 FROM invoice_legacy_session_evidence e WHERE e.invoice_id = ${invoices.id})`,
+    )).returning({ id: invoices.id });
+  if (deleted.length !== 1) throw new ConflictError("Resolve pending payments or retain this invoice's payment history before deleting it");
 }
 
 /** Transition draft -> sent. Returns the updated invoice for email caller. */
@@ -373,6 +388,8 @@ export async function markInvoiceSent(
   db: Database,
   invoiceId: string,
   userId: string,
+  expectedLivemode: boolean,
+  refreshedConnection?: { connectionId: string; expectedAuthorizationRevision: string },
 ): Promise<InvoiceWithLineItems> {
   const existing = await getInvoice(db, invoiceId, userId);
   if (!existing) throw new NotFoundError("Invoice", invoiceId);
@@ -381,13 +398,51 @@ export async function markInvoiceSent(
     throw new InvalidStateTransitionError(existing.status, "sent");
   }
   const now = new Date().toISOString();
-  await db
-    .update(invoices)
-    .set({ status: "sent", issued_at: now, updated_at: now })
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+  const result = await db.run(sql`
+    WITH ready_connection AS (
+      SELECT
+        ${stripeConnections.id} AS connection_id,
+        ${stripeConnections.stripe_account_id} AS account_id,
+        ${stripeConnections.livemode} AS livemode
+      FROM ${stripeConnections}
+      WHERE ${stripeConnections.user_id} = ${userId}
+        AND ${stripeConnections.livemode} = ${expectedLivemode}
+        AND ${refreshedConnection === undefined ? sql`1` : sql`${stripeConnections.id} = ${refreshedConnection.connectionId}
+          AND ${stripeConnections.authorization_revision} = ${refreshedConnection.expectedAuthorizationRevision}`}
+        AND ${stripeConnections.disconnected_at} IS NULL
+        AND ${stripeConnections.disconnect_operation_id} IS NULL
+        AND ${stripeConnections.disconnect_started_at} IS NULL
+        AND (${stripeConnections.livemode} = 0 OR (
+          ${stripeConnections.details_submitted} = 1
+          AND ${stripeConnections.charges_enabled} = 1
+          AND ${stripeConnections.payouts_enabled} = 1
+        ))
+      LIMIT 1
+    )
+    UPDATE ${invoices}
+    SET
+      status = 'sent',
+      issued_at = ${now},
+      updated_at = ${now},
+      stripe_connection_id = (SELECT connection_id FROM ready_connection),
+      stripe_account_id = (SELECT account_id FROM ready_connection),
+      stripe_livemode = (SELECT livemode FROM ready_connection),
+      stripe_charge_scope = 'connected'
+    WHERE ${invoices.id} = ${invoiceId}
+      AND ${invoices.user_id} = ${userId}
+      AND ${invoices.status} = 'draft'
+      AND EXISTS (SELECT 1 FROM ready_connection)
+  `);
 
   const updated = await getInvoice(db, invoiceId, userId);
   if (!updated) throw new NotFoundError("Invoice", invoiceId);
+  if (result.meta.changes !== 1) {
+    if (updated.status === "sent") return updated;
+    if (updated.status !== "draft") {
+      throw new InvalidStateTransitionError(updated.status, "sent");
+    }
+    throw new NoReadyStripeConnectionError();
+  }
   return updated;
 }
 
@@ -402,11 +457,8 @@ export async function voidInvoice(
   if (existing.status === "paid") {
     throw new InvalidStateTransitionError("paid", "void");
   }
-  const now = new Date().toISOString();
-  await db
-    .update(invoices)
-    .set({ status: "void", updated_at: now })
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.user_id, userId)));
+  await beginInvoiceVoid(db, invoiceId, userId);
+  await finalizeInvoiceVoid(db, invoiceId, userId);
 
   const updated = await getInvoice(db, invoiceId, userId);
   if (!updated) throw new NotFoundError("Invoice", invoiceId);

@@ -1,8 +1,5 @@
 /// <reference types="astro/client" />
 
-type D1Database = import("@cloudflare/workers-types").D1Database;
-type R2Bucket = import("@cloudflare/workers-types").R2Bucket;
-type Fetcher = import("@cloudflare/workers-types").Fetcher;
 type Logger = import("@quickspense/domain").Logger;
 
 type SendEmail = {
@@ -36,9 +33,11 @@ type Runtime = import("@astrojs/cloudflare").Runtime<{
   STRIPE_PUBLISHABLE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_CONNECT_WEBHOOK_SECRET?: string;
+  STRIPE_CONNECT_CLIENT_ID?: string;
   /** "production" gates Stripe live-mode key usage. Set in wrangler.jsonc. */
   ENVIRONMENT?: string;
-  /** Local override to allow `sk_live_...` outside production. Use sparingly. */
+  /** Local override to allow live `sk_`/`rk_` keys outside production. */
   STRIPE_ALLOW_LIVE_KEY?: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;

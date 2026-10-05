@@ -57,7 +57,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       await page.setContent(html, { waitUntil: "networkidle0" });
       const pdf = await page.pdf({ printBackground: true, format: "letter" });
       const filename = `${invoice.invoice_number}.pdf`;
-      return new Response(pdf, {
+      return new Response(new Uint8Array(pdf), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${filename}"`,

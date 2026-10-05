@@ -4,18 +4,39 @@ import {
   businessProfiles,
   createDb,
   DomainError,
+  NotFoundError,
 } from "@quickspense/domain";
 import { sendInvoiceEmail } from "../../../../lib/invoiceEmail";
+import { createStripeClient, getGuardedStripeLivemode } from "../../../../lib/stripe";
+import { getInvoicePaymentBaseUrl, refreshInvoiceStripeConnection } from "@/lib/invoiceCheckout";
 
 export const POST: APIRoute = async ({ params, locals }) => {
+  const user = locals.user;
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { "Content-Type": "application/json" },
+    });
+  }
   try {
-    const user = locals.user!;
     const env = locals.runtime.env;
     const db = createDb(env.DB);
     const invoiceId = params.id!;
+    const expectedLivemode = getGuardedStripeLivemode(env);
+    const appUrl = getInvoicePaymentBaseUrl(env.APP_URL);
+    const existing = await invoices.getInvoice(db, invoiceId, user.id);
+    if (!existing) throw new NotFoundError("Invoice");
+    const refreshed = await refreshInvoiceStripeConnection(
+      db, createStripeClient(env), user.id, expectedLivemode, existing.stripe_connection_id ?? undefined,
+    );
 
     // Transition status -> sent (idempotent)
-    const invoice = await invoices.markInvoiceSent(db, invoiceId, user.id);
+    const invoice = await invoices.markInvoiceSent(
+      db,
+      invoiceId,
+      user.id,
+      expectedLivemode,
+      { connectionId: refreshed.id, expectedAuthorizationRevision: refreshed.authorization_revision },
+    );
 
     // Fetch business profile so the email reflects the user's real identity.
     // Falls back to env defaults if the user hasn't set one up yet.
@@ -54,7 +75,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         );
       }
 
-      const payUrl = `${env.APP_URL}/pay/${invoice.pay_token}`;
+      const payUrl = `${appUrl}/pay/${invoice.pay_token}`;
       // Don't log the pay URL: tokens in log aggregators are an avoidable
       // leak vector even in dev. The authenticated owner sees the URL
       // inline in the response below.
@@ -78,7 +99,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         email: env.EMAIL,
         fromAddress: env.EMAIL_FROM_ADDRESS,
         fromName: env.EMAIL_FROM_NAME,
-        appUrl: env.APP_URL,
+        appUrl,
         invoice,
         businessProfile: profile,
       });
@@ -112,7 +133,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-    locals.logger.error("Send invoice error", { error: e });
+    locals.logger.error("Send invoice error");
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
