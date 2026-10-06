@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { apiKey } from "@better-auth/api-key";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import {
   users,
@@ -10,8 +10,16 @@ import {
   verifications,
   apikeys,
   expenses,
+  stripeConnectionOperations,
+  stripeConnections,
+  stripeConnectStates,
+  invoices,
+  invoiceCheckoutAttempts,
+  invoiceLegacySessionEvidence,
+  stripeWebhookEvents,
 } from "../db/schema.js";
-import { NotFoundError } from "../errors.js";
+import { ConflictError, NotFoundError } from "../errors.js";
+import { stripePaymentWorkResolved } from "./stripeConnection.js";
 
 /**
  * Environment variables needed by the auth factory.
@@ -110,12 +118,57 @@ export async function deleteUser(
     .map((r) => r.file_key)
     .filter((k): k is string => k !== null);
 
-  // Delete orphan-prone apikeys (no FK to users)
-  await db.delete(apikeys).where(eq(apikeys.referenceId, userId));
+  const stripeDeletionSafe = sql`
+    ${stripePaymentWorkResolved(userId)} AND
+    NOT EXISTS (
+      SELECT 1 FROM ${stripeConnections}
+      WHERE ${stripeConnections.user_id} = ${userId}
+        AND (
+          ${stripeConnections.disconnected_at} IS NULL
+          OR ${stripeConnections.disconnect_operation_id} IS NOT NULL
+        )
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM ${stripeConnectionOperations}
+      WHERE ${stripeConnectionOperations.user_id} = ${userId}
+        AND ${stripeConnectionOperations.kind} = 'connect'
+        AND EXISTS (
+          SELECT 1 FROM ${stripeConnectStates}
+          WHERE ${stripeConnectStates.operation_id} = ${stripeConnectionOperations.id}
+            AND ${stripeConnectStates.user_id} = ${userId}
+            AND ${stripeConnectStates.consumed_at} IS NOT NULL
+            AND ${stripeConnectStates.completed_at} IS NULL
+        )
+    )
+  `;
+  const results = await db.batch([
+    db.delete(stripeWebhookEvents).where(and(stripeDeletionSafe, sql`(${stripeWebhookEvents.invoice_id} IN (
+      SELECT id FROM invoices WHERE user_id = ${userId}) OR (${stripeWebhookEvents.invoice_id} IS NULL
+        AND ${stripeWebhookEvents.stripe_account_id} IN (SELECT stripe_account_id FROM stripe_connections WHERE user_id = ${userId})))`)),
+    db.delete(invoiceLegacySessionEvidence).where(and(stripeDeletionSafe, sql`${invoiceLegacySessionEvidence.invoice_id} IN (SELECT id FROM invoices WHERE user_id = ${userId})`)),
+    db.delete(invoiceCheckoutAttempts).where(and(stripeDeletionSafe, sql`${invoiceCheckoutAttempts.invoice_id} IN (SELECT id FROM invoices WHERE user_id = ${userId})`)),
+    db.delete(invoices).where(and(eq(invoices.user_id, userId), stripeDeletionSafe)),
+    db
+      .delete(apikeys)
+      .where(and(eq(apikeys.referenceId, userId), stripeDeletionSafe)),
+    db
+      .delete(users)
+      .where(and(eq(users.id, userId), stripeDeletionSafe))
+      .returning({ id: users.id }),
+  ]);
+  const deletedUsers = results[5];
 
-  const result = await db.delete(users).where(eq(users.id, userId));
-
-  if (!result.meta.changes) {
+  if (deletedUsers.length === 0) {
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (existing) {
+      throw new ConflictError(
+        "Resolve sent invoices, pending payments, and Stripe connections before deleting your account",
+      );
+    }
     throw new NotFoundError("User", userId);
   }
 

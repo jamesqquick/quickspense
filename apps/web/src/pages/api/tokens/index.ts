@@ -33,7 +33,9 @@ export const POST: APIRoute = async ({ locals, request }) => {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }
 
-  const name = body?.name;
+  const name = typeof body === "object" && body !== null && "name" in body
+    ? body.name
+    : undefined;
   if (!name || typeof name !== "string" || name.length < 1 || name.length > 100) {
     return new Response(
       JSON.stringify({ error: "Token name is required (1-100 chars)" }),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { Expense, ExpenseStatus, Category } from "@quickspense/domain";
+import type { Expense, ExpenseStatus, Category, PaginatedResult } from "@quickspense/domain";
 import { ExpenseDeleteConfirm } from "./ExpenseDeleteConfirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
 
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
     clearTimeout(debounceRef.current);
@@ -87,7 +87,7 @@ export function ExpenseList({ initialStatus = "active" }: Props) {
     try {
       const res = await fetch(`/api/expenses?${params}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as PaginatedResult<Expense>;
         setItems(data.items);
         setTotal(data.total);
       }

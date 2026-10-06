@@ -124,7 +124,7 @@ export default {
       logger.info("MCP request authorized", { userId });
 
       const server = createServer(env, db, userId);
-      const handler = createMcpHandler(server, { endpoint: "/mcp" });
+      const handler = createMcpHandler(server, { route: "/mcp" });
       return handler(request, env, ctx);
     }
 

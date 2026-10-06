@@ -105,65 +105,187 @@ pnpm build
 ### Deploy
 
 ```bash
+# Apply additive migrations before serving the updated app
+pnpm db:migrate:remote
+
 # Deploy both workers
 pnpm deploy:web
 pnpm deploy:worker
-
-# Run migrations on production
-pnpm db:migrate:remote
 ```
 
 ## Testing Invoicing Locally
 
-The invoicing feature uses Stripe Checkout. To test it on `localhost:4321`:
+Invoice payments use OAuth-connected Stripe accounts and direct charges. Each
+payment belongs to the invoice sender's account. Quickspense adds no application
+fee. Sending an invoice records its account, connection, charge scope, and
+live/test mode; reconnecting never changes that invoice's destination.
 
-1. **Get a Stripe Sandbox restricted key** with `Checkout Sessions: Write`
-   permission. Copy it (`rk_test_...`).
-2. **Set local secrets** in `apps/web/.dev.vars` (gitignored):
-   ```
-   STRIPE_SECRET_KEY=rk_test_...
-   STRIPE_WEBHOOK_SECRET=whsec_...    # filled in step 4
-   ```
-3. **Authenticate the Stripe CLI** (one time):
+### Stripe Connect configuration
+
+Use a Stripe sandbox for development. Configure OAuth for connecting existing
+Stripe accounts and register this redirect URI in the sandbox's Connect settings:
+
+```text
+http://localhost:4321/api/integrations/stripe/callback
+```
+
+The production redirect is `${APP_URL}/api/integrations/stripe/callback` and must
+use HTTPS. HTTP redirects are allowed only for loopback addresses in test mode.
+The client ID and secret key must belong to the same platform and environment.
+
+Set these values in the gitignored `apps/web/.dev.vars`, then restart the dev
+server. Configure production secrets through Wrangler's interactive secret
+commands, never through committed source or command-line key values.
+
+| Variable | Purpose |
+|---|---|
+| `APP_URL` | Trusted application origin, locally `http://localhost:4321` |
+| `STRIPE_SECRET_KEY` | Platform sandbox key for OAuth, account retrieval, and connected Checkout |
+| `STRIPE_CONNECT_CLIENT_ID` | OAuth application client ID from Connect settings |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Signing secret for the connected-account endpoint |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for the original platform endpoint |
+
+The live Connect client ID is configured in `apps/web/wrangler.jsonc`. For local
+development, override it with the sandbox client ID in `apps/web/.dev.vars`.
+The `.dev.vars.example` file includes the sandbox ID and localhost application
+URL; local values override the production configuration.
+
+A restricted key with only Checkout write access is insufficient. Verify OAuth
+authorization/deauthorization, account retrieval and listing, and Checkout create/read/expire
+requests in the intended account context. Use Stripe's current permission
+documentation when restricting the key. Do not interpret a permission error as
+proof that an account disconnected.
+
+When a lifecycle webhook cannot retrieve an account, Quickspense checks all pages
+of the platform's connected-account list before recording revocation. A failed
+inventory request remains retryable. This also lets the sender reconnect the
+same account to resolve outstanding invoices after external revocation.
+
+Create two webhook destinations with distinct production signing secrets:
+
+| Endpoint | Stripe event scope | Events |
+|---|---|---|
+| `/api/webhooks/stripe-connect` | Connected accounts | `account.updated`, `account.application.deauthorized`, and the Checkout events below |
+| `/api/webhooks/stripe` | Your account | Checkout events for previously initiated platform payments |
+
+Subscribe both payment destinations to `checkout.session.completed`,
+`checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
+and `checkout.session.expired`. Use an event API version compatible with the
+installed SDK, currently `2026-04-22.dahlia`. Keep the platform destination during
+the cutover even though Quickspense no longer creates platform-owned Checkout.
+
+### Local payment test
+
+1. Authenticate the Stripe CLI to the intended sandbox with `stripe login`.
+2. Start listeners in separate terminals. If a printed signing secret differs
+   from the corresponding local variable, update it and restart the app:
    ```bash
-   stripe login
+   stripe listen --all-snapshot --events-from @accounts --forward-connect-to localhost:4321/api/webhooks/stripe-connect
+   stripe listen --all-snapshot --events-from @self --forward-to localhost:4321/api/webhooks/stripe
    ```
-4. **Forward webhooks** in a dedicated terminal:
+3. Apply pending local migrations and start the app:
    ```bash
-   stripe listen --forward-to localhost:4321/api/webhooks/stripe
+   pnpm db:migrate:local
+   pnpm dev:web
    ```
-   Copy the printed `whsec_...` into `STRIPE_WEBHOOK_SECRET` in `.dev.vars`.
-   Keep this terminal running.
-5. **Verify local D1 has invoice tables**:
-   ```bash
-   pnpm --filter @quickspense/web exec wrangler d1 execute quickspense-db \
-     --local --persist-to=../../.wrangler \
-     --command "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%invoice%'"
-   ```
-6. **Start dev** (another terminal): `pnpm dev:web`
-7. **End-to-end test**:
-   - Log in → **Invoices → New Invoice**
-   - Use your real email as the client email (`remote: true` binding sends real mail)
-   - Add a line item, click **Save & send**
-   - Click the pay link in the email → click Pay → use card `4242 4242 4242 4242`,
-     any future expiry (`12/34`), any CVC (`123`), any ZIP
-   - Watch the `stripe listen` terminal for `checkout.session.completed` → `200`
-   - Refresh `/invoices/{id}` — status flips to **Paid**
+4. Sign in, open **Settings**, connect an existing Stripe account, and use
+   **Refresh Stripe status**. Confirm **Ready for sandbox**, then create and send
+   a draft. Sandbox readiness does not require enabled capability flags; Stripe
+   determines payment eligibility. Live readiness requires submitted details,
+   enabled charges, and enabled payouts.
+5. Open the payment URL in an anonymous browser. Pay with `4242 4242 4242 4242`,
+   any future expiry, CVC, and ZIP. Verify the signed Connect event returns 200 and
+   the invoice becomes paid.
+6. Inspect the payment in the connected account's Stripe Dashboard or retrieve
+   its PaymentIntent and latest charge using that account's `Stripe-Account`
+   context. Confirm the exact invoice total and currency, no application fee,
+   and that the platform does not own the charge. A paid invoice screen alone
+   does not establish account ownership.
 
-**Email under `astro dev`:** the Cloudflare `send_email` binding is NOT
-proxied by `getPlatformProxy`, so `env.EMAIL` is `undefined` in local dev.
-The send endpoint detects this and returns the pay URL inline instead of
-emailing — the invoice detail page surfaces the URL with a copy button.
-Click it, paste in a new tab, and continue with Stripe Checkout. To
-exercise the real email path locally, build and run via `wrangler dev`
-against the built worker output instead of `astro dev`.
+Repeat with two Quickspense users connected to different accounts. Include
+multiple line items plus tax, simultaneous Pay clicks, a lost creation
+response, expired Checkout, and a delayed payment method. Processing or unknown
+payments must not start another charge. Verify void expires open sessions, blocks
+processing payments, and remains retryable after an ambiguous expiration.
 
-**Troubleshooting:**
+Under `astro dev`, the email binding is unavailable. Sending returns the payment
+URL inline on the invoice detail page. Local D1 state lives in this checkout's
+root `.wrangler/`; use `--local --persist-to=../../.wrangler` for web-directory
+Wrangler commands. Do not run sandbox tests against production bindings.
 
-- `Stripe is not configured` — restart `pnpm dev:web` after editing `.dev.vars`
-- Signature verification failure — re-copy the `whsec_...` from `stripe listen`
-- `permission_error` from Stripe — restricted key missing `Checkout Sessions: Write`
-- Pay button rejects with "not been sent yet" — click **Send** on the draft first
+### Payment and authorization recovery
+
+An attempt stores the exact Checkout request, account, and idempotency key.
+Retries reuse them within a fixed 23-hour window. Stripe can discard keys after
+24 hours, so an unresolved attempt remains blocked after that window. Never
+delete the attempt, extend its deadline, or start a new generation to bypass it.
+Use Stripe records to recover the original session and reconcile its status.
+Payments on void invoices and different-session duplicate successes are recorded
+as exceptions in `stripe_webhook_events` for operator reconciliation.
+
+If OAuth succeeded but local persistence failed, use **Retry Stripe connection**
+in Settings. If the token exchange response was lost and the account is unknown,
+the operation stays blocked. A user's assertion that they revoked access is not
+evidence. An operator must establish the account identity and authorization
+outcome from Stripe request logs or Stripe support, match the pending operation
+to the authenticated user and mode, and use the server-side recovery services.
+Do not deauthorize an account claimed by another Quickspense user or clear an
+unknown operation without verified evidence. There is no browser override.
+
+### Historical platform invoices and release
+
+The owner manually reissues historical unpaid invoices after connecting their
+Stripe account. There is no automated reissuance or migration notification.
+Before reissuing, inventory all earlier platform Checkout sessions, including
+sessions overwritten in the old single-session invoice field:
+
+1. Use the original platform's Stripe Dashboard, request logs, or paginated
+   server-side Checkout inventory. Record actual session IDs, account context,
+   live/test mode, invoice metadata, amount, currency, payment status, and
+   PaymentIntent IDs. Keep pay tokens and request evidence out of shared logs.
+2. Establish the session's original invoice binding, then compare its total and
+   currency with the immutable invoice. Do not fabricate session IDs, guess mode
+   from the current key, or treat pay-token metadata alone as sufficient proof.
+3. Reconcile paid sessions before reissuing. Wait for processing sessions. Expire
+   open unpaid sessions and retrieve them again to confirm expiration before
+   voiding or reissuing. Handle duplicate payments through Stripe reconciliation.
+4. The app automatically classifies only the exact session already stored on a
+   historical invoice, after retrieving it from Stripe in the platform context.
+   Its mode can be set once using `invoice_legacy_session_evidence`. Old signed
+   payment events can then reconcile without changing an already-paid timestamp.
+5. Missing or overwritten session bindings require operator/support review. The
+   app has no historical discovery/import tool and will not rewrite established
+   bindings. Preserve the records and resolve those cases before manual reissue.
+   Resend affected events from Stripe after verified recovery. A retryable 503
+   means reconciliation has not committed, not that the event can be discarded.
+
+Apply migrations `0008` through `0015` before serving the updated web app and
+deploy compatible domain/web/worker builds together. Both webhook endpoints must
+remain reachable. Verify the migration history first: `0000_baseline.sql` is a
+Drizzle snapshot overlapping the operational `0001` and `0002` migrations. The
+tests exercise the operational `0001` through `0015` chain and populated upgrades;
+do not blindly apply both baseline and initial migrations to a fresh database.
+
+To roll back payment initiation, disable new checkout creation while retaining
+the ledger, additive schema, and webhook reconciliation. Never restore the old
+platform-owned Checkout path as a rollback strategy.
+
+Run automated verification separately from the build:
+
+```bash
+pnpm test
+pnpm check
+pnpm build
+```
+
+`pnpm check` runs the web's Astro checks and the worker's TypeScript check. The
+build includes the domain typecheck and bundling; it is not a substitute for the
+full application checks. No lint command is configured.
+
+Stripe references: [OAuth](https://docs.stripe.com/connect/oauth-standard-accounts),
+[direct charges](https://docs.stripe.com/connect/direct-charges),
+[Connect webhooks](https://docs.stripe.com/connect/webhooks), and
+[idempotency](https://docs.stripe.com/api/idempotent_requests).
 
 ## MCP Integration
 

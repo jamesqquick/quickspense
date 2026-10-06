@@ -69,7 +69,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       await page.setContent(html, { waitUntil: "networkidle0" });
       const pdf = await page.pdf({ printBackground: true, format: "letter" });
       const filename = `${invoice.invoice_number}.pdf`;
-      return new Response(pdf, {
+      return new Response(new Uint8Array(pdf), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${filename}"`,
@@ -82,8 +82,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
   } catch (e) {
     locals.logger.error("Generate invoice PDF (public) failed", {
-      token: params.token,
-      error: e,
+      errorType: e instanceof Error ? "Error" : "UnknownError",
     });
     return new Response(
       JSON.stringify({ error: "Failed to generate PDF" }),

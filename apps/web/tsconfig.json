@@ -9,5 +9,5 @@
     },
     "types": ["@cloudflare/workers-types/2023-07-01"]
   },
-  "include": ["src/**/*", "env.d.ts"]
+  "include": [".astro/types.d.ts", "src/**/*", "env.d.ts"]
 }

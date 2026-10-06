@@ -13,3 +13,5 @@ export * as expenses from "./services/expense.js";
 export * as categories from "./services/category.js";
 export * as invoices from "./services/invoice.js";
 export * as businessProfiles from "./services/businessProfile.js";
+export * as stripeConnections from "./services/stripeConnection.js";
+export * as invoicePayments from "./services/invoicePayment.js";

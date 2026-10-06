@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { invoices, businessProfiles, createDb } from "@quickspense/domain";
+import { createDb } from "@quickspense/domain";
+import { getPublicInvoice } from "@/lib/publicInvoice";
 
 /**
  * Public read of an invoice by its pay_token. Returns the minimum data
@@ -26,54 +27,23 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const db = createDb(env.DB);
   const token = params.token!;
 
-  const invoice = await invoices.getInvoiceByPayToken(db, token);
+  const invoice = await getPublicInvoice(db, token, env.EMAIL_FROM_NAME);
   if (!invoice) {
     return new Response(JSON.stringify({ error: "Invoice not found" }), {
       status: 404,
       headers: {
         "Content-Type": "application/json",
         "Referrer-Policy": "no-referrer",
+        "Cache-Control": "no-store",
       },
     });
   }
 
-  // Fall back to env defaults for users who haven't set up a business
-  // profile yet. New users will get the prompt to set one up in settings.
-  const profile = await businessProfiles.getBusinessProfile(
-    db,
-    invoice.user_id,
-  );
-
-  const publicView = {
-    invoice_number: invoice.invoice_number,
-    status: invoice.status,
-    client_name: invoice.client_name,
-    subtotal: invoice.subtotal,
-    tax_amount: invoice.tax_amount,
-    total: invoice.total,
-    currency: invoice.currency,
-    notes: invoice.notes,
-    due_date: invoice.due_date,
-    issued_at: invoice.issued_at,
-    paid_at: invoice.paid_at,
-    line_items: invoice.line_items.map((item) => ({
-      id: item.id,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      line_total: item.line_total,
-      position: item.position,
-    })),
-    issuer_name: profile?.business_name ?? env.EMAIL_FROM_NAME,
-    issuer_email: profile?.business_email ?? null,
-    issuer_phone: profile?.business_phone ?? null,
-    issuer_address: profile?.business_address ?? null,
-  };
-
-  return new Response(JSON.stringify(publicView), {
+  return new Response(JSON.stringify(invoice), {
     headers: {
       "Content-Type": "application/json",
       "Referrer-Policy": "no-referrer",
+      "Cache-Control": "no-store",
     },
   });
 };

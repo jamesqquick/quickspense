@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { navigateWithFlashToast } from "@/lib/flashToast";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 export function DangerZone({ userEmail }: { userEmail: string }) {
   const [confirmText, setConfirmText] = useState("");
@@ -22,7 +23,7 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
         navigateWithFlashToast("/login", "success", "Account deleted");
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to delete account");
+        toast.error(getApiErrorMessage(data, "Failed to delete account"));
         setDeleting(false);
       }
     } catch {

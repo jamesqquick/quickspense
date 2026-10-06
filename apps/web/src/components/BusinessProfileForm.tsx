@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 type BusinessProfile = {
   user_id: string;
@@ -113,7 +114,7 @@ export function BusinessProfileForm() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save");
+        throw new Error(getApiErrorMessage(data, "Failed to save"));
       }
 
       const updated = (await res.json()) as BusinessProfile;

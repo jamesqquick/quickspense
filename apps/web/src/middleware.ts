@@ -11,7 +11,13 @@ const PUBLIC_PATHS = [
   "/pay",
   "/api/auth",
   "/api/invoices/public",
+];
+const STRIPE_CONNECT_CALLBACK_PATH = "/api/integrations/stripe/callback";
+const EXACT_PUBLIC_PATHS = [
+  "/_actions/invoice.pay",
+  "/_actions/invoice.pay/",
   "/api/webhooks/stripe",
+  "/api/webhooks/stripe-connect",
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -28,7 +34,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.logger = createLogger({
     service: "web",
     requestId,
-    path: pathname,
+    path: pathname.replace(/^(\/pay|\/api\/invoices\/public)\/[^/]+/, "$1/[token]"),
     method: context.request.method,
   });
 
@@ -97,9 +103,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Protect non-public routes
   if (
     !context.locals.user &&
-    !PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
+    !PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) &&
+    !EXACT_PUBLIC_PATHS.includes(pathname) &&
+    pathname !== STRIPE_CONNECT_CALLBACK_PATH
   ) {
-    if (pathname.startsWith("/api/")) {
+    if (pathname.startsWith("/api/") || pathname.startsWith("/_actions/")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },

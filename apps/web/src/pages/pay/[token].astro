@@ -1,17 +1,37 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { PublicInvoiceView } from "../../components/PublicInvoiceView";
+import { createDb } from "@quickspense/domain";
+import { getPublicInvoice } from "../../lib/publicInvoice";
 
 const { token } = Astro.params;
 const success = Astro.url.searchParams.get("status") === "success";
-
 // Don't leak the pay_token in the Referer header when the user navigates
 // to Stripe Checkout or any external link.
 Astro.response.headers.set("Referrer-Policy", "no-referrer");
+Astro.response.headers.set("Cache-Control", "no-store");
+
+let invoice: Awaited<ReturnType<typeof getPublicInvoice>> = null;
+let readFailed = false;
+try {
+  const env = Astro.locals.runtime.env;
+  invoice = await getPublicInvoice(createDb(env.DB), token!, env.EMAIL_FROM_NAME);
+  if (!invoice) Astro.response.status = 404;
+} catch {
+  console.error("[invoice.public.page] read_failed");
+  readFailed = true;
+  Astro.response.status = 503;
+}
 ---
 
 <Layout>
   <div class="max-w-2xl mx-auto">
-    <PublicInvoiceView token={token!} initialSuccess={success} client:load />
+    {readFailed ? (
+      <div class="glass rounded-2xl p-8 text-center" role="alert">
+        <p class="text-slate-200">We couldn't load this invoice. Please try again shortly.</p>
+      </div>
+    ) : (
+      <PublicInvoiceView token={token!} initialInvoice={invoice} initialSuccess={success} client:load />
+    )}
   </div>
 </Layout>

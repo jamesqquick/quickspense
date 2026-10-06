@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Invoice, InvoiceStatus } from "@quickspense/domain";
+import type { Invoice, InvoiceStatus, PaginatedResult } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,7 +33,7 @@ export function InvoiceList() {
     try {
       const res = await fetch(`/api/invoices?${params}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as PaginatedResult<Invoice>;
         setItems(data.items);
         setTotal(data.total);
       }

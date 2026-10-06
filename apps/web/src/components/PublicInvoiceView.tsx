@@ -1,105 +1,50 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { PublicInvoice } from "@quickspense/domain";
+import { actions } from "astro:actions";
 import { toast } from "sonner";
-import type { InvoiceCurrency } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatInvoiceMoney } from "@/lib/invoiceMoney";
-
-type PublicInvoice = {
-  invoice_number: string;
-  status: "draft" | "sent" | "paid" | "void";
-  client_name: string;
-  subtotal: number;
-  tax_amount: number;
-  total: number;
-  currency: InvoiceCurrency;
-  notes: string | null;
-  due_date: string;
-  issued_at: string | null;
-  paid_at: string | null;
-  issuer_name: string;
-  issuer_email: string | null;
-  issuer_phone: string | null;
-  issuer_address: string | null;
-  line_items: Array<{
-    id: string;
-    description: string;
-    quantity: number;
-    unit_price: number;
-    line_total: number;
-    position: number;
-  }>;
-};
 
 export function PublicInvoiceView({
   token,
+  initialInvoice,
   initialSuccess = false,
 }: {
   token: string;
+  initialInvoice: PublicInvoice | null;
   initialSuccess?: boolean;
 }) {
-  const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState(initialInvoice);
   const [paying, setPaying] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch(`/api/invoices/public/${token}`);
-        if (!res.ok) {
-          if (!mounted) return;
-          setLoadError(res.status === 404 ? "Invoice not found" : "Failed to load");
-          return;
-        }
-        const data = (await res.json()) as PublicInvoice;
-        if (!mounted) return;
-        setInvoice(data);
-      } catch {
-        if (mounted) setLoadError("Failed to load");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [token]);
+  const [processing, setProcessing] = useState(false);
 
   const startCheckout = async () => {
     setPaying(true);
     try {
-      const res = await fetch(`/api/invoices/public/${token}/checkout`, {
-        method: "POST",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Checkout failed");
+      const { data, error } = await actions.invoice.pay({ payToken: token });
+      if (error) {
+        toast.error(error.message || "Payment could not be started. Please try again.");
+        return;
       }
-      if (!data.url) throw new Error("No checkout URL returned");
-      window.location.href = data.url;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Checkout failed");
+      if (data.status === "checkout") {
+        window.location.href = data.url;
+      } else if (data.status === "paid") {
+        setInvoice((current) => current && { ...current, status: "paid" });
+      } else {
+        setProcessing(true);
+      }
+    } catch {
+      toast.error("Payment could not be started. Please try again.");
+    } finally {
       setPaying(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Card className="p-6 space-y-3">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-      </Card>
-    );
-  }
-
-  if (loadError || !invoice) {
+  if (!invoice) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-red-400">{loadError ?? "Invoice not available"}</p>
+        <p className="text-red-400">Invoice not available</p>
       </Card>
     );
   }
@@ -107,6 +52,7 @@ export function PublicInvoiceView({
   const isPayable = invoice.status === "sent";
   const isPaid = invoice.status === "paid";
   const isVoid = invoice.status === "void";
+  const isProcessing = isPayable && (processing || invoice.payment_processing);
 
   return (
     <div className="space-y-6">
@@ -136,7 +82,7 @@ export function PublicInvoiceView({
         </Card>
       )}
 
-      {initialSuccess && !isPaid && (
+      {(initialSuccess || isProcessing) && !isPaid && (
         <Card className="p-4 bg-blue-500/10 border-blue-500/30 text-center">
           <p className="text-blue-300 font-medium">Processing your payment</p>
           <p className="text-sm text-blue-400/80 mt-1">
@@ -236,9 +182,11 @@ export function PublicInvoiceView({
 
       <div className="flex flex-col items-center gap-3">
         {isPayable && (
-          <Button size="lg" onClick={startCheckout} disabled={paying}>
-            {paying
-              ? "Redirecting..."
+          <Button size="lg" onClick={startCheckout} disabled={paying || isProcessing}>
+            {isProcessing
+              ? "Payment processing"
+              : paying
+              ? "Confirming..."
               : `Pay ${formatInvoiceMoney(invoice.total / 100, invoice.currency)}`}
           </Button>
         )}

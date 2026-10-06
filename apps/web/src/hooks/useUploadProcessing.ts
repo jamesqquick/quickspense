@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   EXPENSE_PROGRESS_STEPS,
   type ExpenseStatusUpdate,
+  type ExpenseWithParsedData,
 } from "@quickspense/domain";
 import {
   computeUploadProgress,
@@ -98,7 +99,7 @@ export function useUploadProcessing({
       try {
         const res = await fetch(`/api/expenses/${expenseId}`);
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as ExpenseWithParsedData;
           return data.expense?.status ?? null;
         }
       } catch {

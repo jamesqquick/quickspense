@@ -6,8 +6,10 @@ import {
   index,
   uniqueIndex,
   unique,
+  check,
 } from "drizzle-orm/sqlite-core";
 import { sql, relations } from "drizzle-orm";
+import type { StripeAccountRequirements } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Users (Better Auth core)
@@ -30,6 +32,9 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   categories: many(categories),
   expenses: many(expenses),
   invoices: many(invoices),
+  stripeConnections: many(stripeConnections),
+  stripeConnectionOperations: many(stripeConnectionOperations),
+  stripeConnectStates: many(stripeConnectStates),
   businessProfile: one(businessProfiles, {
     fields: [users.id],
     references: [businessProfiles.user_id],
@@ -264,6 +269,174 @@ export const parsedExpensesRelations = relations(parsedExpenses, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Stripe Connect
+// ---------------------------------------------------------------------------
+export const stripeConnections = sqliteTable(
+  "stripe_connections",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripe_account_id: text("stripe_account_id").notNull(),
+    livemode: integer("livemode", { mode: "boolean" }).notNull(),
+    charges_enabled: integer("charges_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    payouts_enabled: integer("payouts_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    details_submitted: integer("details_submitted", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    requirements: text("requirements", { mode: "json" }).$type<StripeAccountRequirements>(),
+    disconnected_at: text("disconnected_at"),
+    disconnect_operation_id: text("disconnect_operation_id"),
+    disconnect_started_at: text("disconnect_started_at"),
+    authorization_revision: text("authorization_revision").notNull(),
+    stripe_status_at: text("stripe_status_at").notNull(),
+    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+    updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex("idx_stripe_connections_account").on(table.stripe_account_id),
+    uniqueIndex("idx_stripe_connections_active_user")
+      .on(table.user_id)
+      .where(sql`${table.disconnected_at} IS NULL`),
+    index("idx_stripe_connections_user").on(table.user_id),
+  ],
+);
+
+export const stripeConnectionsRelations = relations(
+  stripeConnections,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [stripeConnections.user_id],
+      references: [users.id],
+    }),
+    invoices: many(invoices),
+  }),
+);
+
+export const stripeConnectionOperations = sqliteTable(
+  "stripe_connection_operations",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    connection_id: text("connection_id").references(() => stripeConnections.id),
+    expires_at: text("expires_at"),
+    phase: text("phase").notNull(),
+    stripe_account_id: text("stripe_account_id"),
+    attempt_id: text("attempt_id"),
+    attempt_expires_at: text("attempt_expires_at"),
+    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_stripe_connection_operations_connection").on(
+      table.connection_id,
+    ),
+    check(
+      "stripe_connection_operations_kind_check",
+      sql`${table.kind} IN ('connect', 'disconnect')`,
+    ),
+    check(
+      "stripe_connection_operations_shape_check",
+      sql`(${table.kind} = 'connect' AND ${table.connection_id} IS NULL AND ${table.expires_at} IS NOT NULL) OR (${table.kind} = 'disconnect' AND ${table.connection_id} IS NOT NULL AND ${table.expires_at} IS NULL)`,
+    ),
+    check(
+      "stripe_connection_operations_phase_check",
+      sql`(${table.kind} = 'connect' AND ((${table.phase} = 'authorizing' AND ${table.stripe_account_id} IS NULL) OR (${table.phase} = 'authorized' AND ${table.stripe_account_id} IS NOT NULL)) AND ${table.attempt_id} IS NULL AND ${table.attempt_expires_at} IS NULL) OR (${table.kind} = 'disconnect' AND ${table.phase} = 'disconnecting' AND ${table.stripe_account_id} IS NULL AND ((${table.attempt_id} IS NULL AND ${table.attempt_expires_at} IS NULL) OR (${table.attempt_id} IS NOT NULL AND ${table.attempt_expires_at} IS NOT NULL)))`,
+    ),
+  ],
+);
+
+export const stripeConnectionOperationsRelations = relations(
+  stripeConnectionOperations,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [stripeConnectionOperations.user_id],
+      references: [users.id],
+    }),
+    connection: one(stripeConnections, {
+      fields: [stripeConnectionOperations.connection_id],
+      references: [stripeConnections.id],
+    }),
+    states: many(stripeConnectStates),
+  }),
+);
+
+export const stripeConnectStates = sqliteTable(
+  "stripe_connect_states",
+  {
+    state_hash: text("state_hash").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    livemode: integer("livemode", { mode: "boolean" }).notNull(),
+    operation_id: text("operation_id").references(
+      () => stripeConnectionOperations.id,
+      { onDelete: "set null" },
+    ),
+    expires_at: text("expires_at").notNull(),
+    consumed_at: text("consumed_at"),
+    completed_at: text("completed_at"),
+    created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_stripe_connect_states_user_expires").on(
+      table.user_id,
+      table.expires_at,
+    ),
+  ],
+);
+
+export const stripeConnectStatesRelations = relations(
+  stripeConnectStates,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [stripeConnectStates.user_id],
+      references: [users.id],
+    }),
+    operation: one(stripeConnectionOperations, {
+      fields: [stripeConnectStates.operation_id],
+      references: [stripeConnectionOperations.id],
+    }),
+  }),
+);
+
+export const stripeWebhookEvents = sqliteTable(
+  "stripe_webhook_events",
+  {
+    event_key: text("event_key").primaryKey(),
+    stripe_account_id: text("stripe_account_id").notNull(),
+    event_id: text("event_id").notNull(),
+    event_type: text("event_type").notNull(),
+    processed_at: text("processed_at").notNull().default(sql`(datetime('now'))`),
+    charge_scope: text("charge_scope"),
+    livemode: integer("livemode", { mode: "boolean" }),
+    invoice_id: text("invoice_id").references(() => invoices.id, { onDelete: "restrict" }),
+    checkout_attempt_id: text("checkout_attempt_id").references(
+      () => invoiceCheckoutAttempts.id,
+      { onDelete: "restrict" },
+    ),
+    stripe_session_id: text("stripe_session_id"),
+    stripe_payment_intent_id: text("stripe_payment_intent_id"),
+    result: text("result"),
+    receipt_id: text("receipt_id"),
+    amount_total: integer("amount_total"),
+    currency: text("currency"),
+    payment_status: text("payment_status"),
+  },
+  (table) => [
+    index("idx_stripe_webhook_events_account").on(table.stripe_account_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
 export const invoices = sqliteTable(
@@ -289,6 +462,14 @@ export const invoices = sqliteTable(
     paid_at: text("paid_at"),
     stripe_session_id: text("stripe_session_id"),
     stripe_payment_intent_id: text("stripe_payment_intent_id"),
+    stripe_connection_id: text("stripe_connection_id").references(
+      () => stripeConnections.id,
+    ),
+    stripe_account_id: text("stripe_account_id"),
+    stripe_livemode: integer("stripe_livemode", { mode: "boolean" }),
+    stripe_charge_scope: text("stripe_charge_scope"),
+    stripe_checkout_attempt: integer("stripe_checkout_attempt").notNull().default(0),
+    stripe_void_pending: integer("stripe_void_pending", { mode: "boolean" }).notNull().default(false),
     created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
     updated_at: text("updated_at").notNull().default(sql`(datetime('now'))`),
   },
@@ -297,13 +478,81 @@ export const invoices = sqliteTable(
     index("idx_invoices_user_created").on(table.user_id, table.created_at),
     uniqueIndex("idx_invoices_user_number").on(table.user_id, table.invoice_number),
     index("idx_invoices_pay_token").on(table.pay_token),
+    index("idx_invoices_stripe_connection").on(table.stripe_connection_id),
+    check(
+      "invoices_stripe_charge_scope_check",
+      sql`${table.stripe_charge_scope} IS NULL OR ${table.stripe_charge_scope} IN ('platform', 'connected')`,
+    ),
   ],
 );
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   user: one(users, { fields: [invoices.user_id], references: [users.id] }),
+  stripeConnection: one(stripeConnections, {
+    fields: [invoices.stripe_connection_id],
+    references: [stripeConnections.id],
+  }),
   lineItems: many(invoiceLineItems),
+  checkoutAttempts: many(invoiceCheckoutAttempts),
 }));
+
+export const invoiceCheckoutAttempts = sqliteTable(
+  "invoice_checkout_attempts",
+  {
+    id: text("id").primaryKey(),
+    invoice_id: text("invoice_id").notNull().references(() => invoices.id, { onDelete: "restrict" }),
+    generation: integer("generation").notNull(),
+    stripe_connection_id: text("stripe_connection_id").notNull().references(() => stripeConnections.id, { onDelete: "restrict" }),
+    stripe_account_id: text("stripe_account_id").notNull(),
+    livemode: integer("livemode", { mode: "boolean" }).notNull(),
+    charge_scope: text("charge_scope").notNull(),
+    amount_total: integer("amount_total").notNull(),
+    currency: text("currency").notNull(),
+    idempotency_key: text("idempotency_key").notNull().unique(),
+    request_json: text("request_json").notNull(),
+    state: text("state").notNull(),
+    stripe_session_id: text("stripe_session_id"),
+    stripe_payment_intent_id: text("stripe_payment_intent_id"),
+    creation_claim_id: text("creation_claim_id"),
+    creation_lease_expires_at: text("creation_lease_expires_at"),
+    first_creation_started_at: text("first_creation_started_at"),
+    retry_until: text("retry_until"),
+    created_at: text("created_at").notNull(),
+    updated_at: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_invoice_checkout_attempts_generation").on(table.invoice_id, table.generation),
+    uniqueIndex("idx_invoice_checkout_attempts_active").on(table.invoice_id)
+      .where(sql`${table.state} IN ('creating', 'open', 'processing', 'unknown')`),
+    uniqueIndex("idx_invoice_checkout_attempts_session")
+      .on(table.stripe_account_id, table.livemode, table.stripe_session_id)
+      .where(sql`${table.stripe_session_id} IS NOT NULL`),
+    check("invoice_checkout_attempts_generation_check", sql`${table.generation} > 0`),
+    check("invoice_checkout_attempts_scope_check", sql`${table.charge_scope} = 'connected'`),
+    check("invoice_checkout_attempts_amount_check", sql`${table.amount_total} > 0`),
+    check("invoice_checkout_attempts_mode_check", sql`${table.livemode} IN (0, 1)`),
+    check("invoice_checkout_attempts_request_check", sql`json_valid(${table.request_json}) AND json_type(${table.request_json}) = 'object'`),
+    check("invoice_checkout_attempts_state_check", sql`${table.state} IN ('creating', 'open', 'processing', 'paid', 'failed', 'expired', 'unknown')`),
+    check("invoice_checkout_attempts_lease_check", sql`(${table.creation_claim_id} IS NULL AND ${table.creation_lease_expires_at} IS NULL) OR (${table.creation_claim_id} IS NOT NULL AND ${table.creation_lease_expires_at} IS NOT NULL)`),
+    check("invoice_checkout_attempts_retry_check", sql`(${table.first_creation_started_at} IS NULL AND ${table.retry_until} IS NULL) OR (${table.first_creation_started_at} IS NOT NULL AND ${table.retry_until} IS NOT NULL)`),
+  ],
+);
+
+export const invoiceCheckoutAttemptsRelations = relations(invoiceCheckoutAttempts, ({ one }) => ({
+  invoice: one(invoices, { fields: [invoiceCheckoutAttempts.invoice_id], references: [invoices.id] }),
+  stripeConnection: one(stripeConnections, { fields: [invoiceCheckoutAttempts.stripe_connection_id], references: [stripeConnections.id] }),
+}));
+
+export const invoiceLegacySessionEvidence = sqliteTable("invoice_legacy_session_evidence", {
+  invoice_id: text("invoice_id").primaryKey().references(() => invoices.id, { onDelete: "restrict" }),
+  stripe_session_id: text("stripe_session_id").notNull(),
+  livemode: integer("livemode", { mode: "boolean" }).notNull(),
+  amount_total: integer("amount_total").notNull(),
+  currency: text("currency").notNull(),
+  pay_token: text("pay_token").notNull(),
+  confirmed_expired: integer("confirmed_expired", { mode: "boolean" }).notNull(),
+  observed_at: text("observed_at").notNull(),
+});
 
 // ---------------------------------------------------------------------------
 // Invoice Line Items

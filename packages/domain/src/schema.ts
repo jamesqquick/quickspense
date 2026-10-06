@@ -84,6 +84,29 @@ export const listExpensesSchema = z.object({
 // ---------------------------------------------------------------------------
 export const invoiceStatusSchema = z.enum(["draft", "sent", "paid", "void"]);
 
+export const payInvoiceSchema = z.object({
+  payToken: z.string().regex(/^qsi_[0-9a-f]{64}$/, "Invalid invoice payment link"),
+}).strict();
+
+export const stripeChargeScopeSchema = z.enum(["platform", "connected"]);
+
+export const stripeAccountRequirementsSchema = z.object({
+  disabled_reason: z.string().nullable(),
+  currently_due: z.array(z.string()),
+  past_due: z.array(z.string()),
+  pending_verification: z.array(z.string()),
+  errors: z.array(z.object({ code: z.string(), requirement: z.string() })),
+});
+
+export const stripeAccountStatusSchema = z.object({
+  stripe_account_id: z.string().min(1),
+  livemode: z.boolean(),
+  charges_enabled: z.boolean(),
+  payouts_enabled: z.boolean(),
+  details_submitted: z.boolean(),
+  requirements: stripeAccountRequirementsSchema.nullable().optional(),
+});
+
 export const invoiceLineItemInputSchema = z.object({
   description: z.string().min(1, "Description is required").max(500),
   quantity: z
