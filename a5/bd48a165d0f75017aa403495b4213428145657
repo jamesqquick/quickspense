@@ -1,0 +1,23 @@
+README.md
+  s_13810972c7238f::t_789a140a83cc0e 148-152
+apps/web/.dev.vars.example
+  s_13810972c7238f::t_fcf1262df5c97d 18-26
+apps/web/wrangler.jsonc
+  s_13810972c7238f::t_b1fd59998d7c87 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a5bd48a165d0f75017aa403495b4213428145657",
+  "prompts": {},
+  "sessions": {
+    "s_13810972c7238f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f027b7506ffepyr0SjBTw4eg2m",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "James Quick <jquick@cloudflare.com>"
+    }
+  }
+}
