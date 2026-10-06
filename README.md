@@ -145,6 +145,11 @@ commands, never through committed source or command-line key values.
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Signing secret for the connected-account endpoint |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret for the original platform endpoint |
 
+The live Connect client ID is configured in `apps/web/wrangler.jsonc`. For local
+development, override it with the sandbox client ID in `apps/web/.dev.vars`.
+The `.dev.vars.example` file includes the sandbox ID and localhost application
+URL; local values override the production configuration.
+
 A restricted key with only Checkout write access is insufficient. Verify OAuth
 authorization/deauthorization, account retrieval and listing, and Checkout create/read/expire
 requests in the intended account context. Use Stripe's current permission

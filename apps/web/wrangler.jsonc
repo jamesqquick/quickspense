@@ -13,6 +13,7 @@
     "EMAIL_FROM_ADDRESS": "noreply@quickspense.com",
     "EMAIL_FROM_NAME": "Quickspense",
     "STRIPE_PUBLISHABLE_KEY": "",
+    "STRIPE_CONNECT_CLIENT_ID": "ca_VMw02XepinDwQj3GVjSeg9ZmAhK8Ma9D",
     // Read by lib/stripe.ts to authorize use of `sk_live_...` keys. Only the
     // production-deployed worker should have this set to "production".
     "ENVIRONMENT": "production",

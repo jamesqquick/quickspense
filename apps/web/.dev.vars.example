@@ -15,7 +15,15 @@ WORKER_DEV_URL=http://localhost:8787
 #   https://dashboard.stripe.com/test/apikeys
 STRIPE_SECRET_KEY=sk_test_...
 
-# Get from `stripe listen --forward-to localhost:4321/api/webhooks/stripe`
+# Non-secret sandbox client ID; overrides the live ID in wrangler.jsonc.
+# Register the sandbox callback: http://localhost:4321/api/integrations/stripe/callback
+STRIPE_CONNECT_CLIENT_ID=ca_VMw0V8GKFFIgNroQOXRSDBf9cvh7Llpw
+APP_URL=http://localhost:4321
+
+# Get from `stripe listen --all-snapshot --events-from @accounts --forward-connect-to localhost:4321/api/webhooks/stripe-connect`
+STRIPE_CONNECT_WEBHOOK_SECRET=whsec_...
+
+# Get from `stripe listen --all-snapshot --events-from @self --forward-to localhost:4321/api/webhooks/stripe`
 # (NOT the same as the production webhook secret)
 STRIPE_WEBHOOK_SECRET=whsec_...
 
