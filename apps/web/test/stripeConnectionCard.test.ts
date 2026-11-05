@@ -16,13 +16,29 @@ const requirements = {
 function render(overrides: Parameters<typeof connectionFixture>[0] = {}, refreshConfigured = true) {
   const status = stripeConnections.getConnectionStatus(connectionFixture({ charges_enabled: false, payouts_enabled: false,
     requirements, ...overrides }), overrides.livemode ?? false);
-  const connection: StripeConnectionView = { ...status, stripe_account_suffix: "suer" };
+  const connection: StripeConnectionView = { ...status, stripe_account_suffix: "suer",
+    stripe_dashboard_url: `https://dashboard.stripe.com/${status.stripe_account_id}/` };
   return renderToStaticMarkup(createElement(StripeConnectionCard, {
     connectConfigured: true, disconnectConfigured: true, refreshConfigured, connection, recoveryState: null,
   }));
 }
 
 describe("Stripe account status guidance", () => {
+  it("links to the connected account instead of the currently selected Stripe account", () => {
+    const html = render({ stripe_account_id: "acct_connected" });
+    expect(html).toContain('href="https://dashboard.stripe.com/acct_connected/"');
+    expect(html).not.toContain('href="https://dashboard.stripe.com/"');
+  });
+
+  it("does not send an unknown authorization to an unrelated Stripe dashboard", () => {
+    const html = renderToStaticMarkup(createElement(StripeConnectionCard, {
+      connectConfigured: true, disconnectConfigured: true, refreshConfigured: true,
+      connection: null, recoveryState: "unconfirmed",
+    }));
+    expect(html).toContain("select the account you tried to connect");
+    expect(html).not.toContain("https://dashboard.stripe.com");
+  });
+
   it("explains sandbox eligibility without hiding disabled flags or Stripe requirements", () => {
     const html = render();
     expect(html).toContain("Ready for sandbox");

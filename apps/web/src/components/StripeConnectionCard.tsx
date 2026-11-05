@@ -26,6 +26,7 @@ export type StripeConnectionView = Pick<
   | "ready"
 > & {
   stripe_account_suffix: string;
+  stripe_dashboard_url: string;
 };
 
 type StripeConnectionCardProps = {
@@ -157,23 +158,11 @@ export function StripeConnectionCard({
   const unconfirmedRecovery = (
     <div className="space-y-3 text-sm">
       <p className="text-slate-300">
-        Stripe authorization could not be confirmed. Stripe/support verification
-        is needed to identify the account and verify its authorization. Connection
-        changes and account deletion remain blocked until verification is complete.
+        Quickspense could not confirm whether Stripe authorized your account.
+        Contact Quickspense support to recover this connection attempt. When
+        reviewing connected applications in Stripe, select the account you tried
+        to connect.
       </p>
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline">
-          <a
-            href="https://dashboard.stripe.com/settings/applications"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open Stripe Dashboard
-            <ExternalLink aria-hidden="true" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        </Button>
-      </div>
     </div>
   );
 
@@ -372,7 +361,7 @@ export function StripeConnectionCard({
                 </Button>
                 <Button asChild variant="outline">
                   <a
-                    href="https://dashboard.stripe.com/"
+                    href={connection.stripe_dashboard_url}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
