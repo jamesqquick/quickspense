@@ -13,6 +13,7 @@ import {
   ConflictError,
   InvalidStateTransitionError,
   NoReadyStripeConnectionError,
+  NotFoundError,
   ValidationError,
 } from "../src/errors.js";
 import * as invoices from "../src/services/invoice.js";
@@ -338,6 +339,98 @@ describe("invoices", () => {
     expect(a1.invoice_number).toBe("INV-0001");
     expect(a2.invoice_number).toBe("INV-0002");
     expect(b1.invoice_number).toBe("INV-0001");
+  });
+
+  it.each(["draft", "sent", "paid", "void"] as const)(
+    "duplicates a %s invoice as a fresh draft",
+    async (sourceStatus) => {
+      const db = createDb(env.DB);
+      const user = await createTestUser(db, `${crypto.randomUUID()}@test.com`);
+      const source = await invoices.createDraftInvoice(db, {
+        userId: user.id,
+        ...baseInvoice,
+        currency: "EUR",
+        client_address: "123 Main St",
+        notes: "Thank you for your business.",
+      });
+
+      if (sourceStatus === "sent" || sourceStatus === "paid") {
+        await sendTestInvoice(db, source.id, user.id);
+      }
+      if (sourceStatus === "paid") {
+        await invoices.markInvoicePaidByPayToken(db, source.pay_token, {
+          stripeSessionId: "cs_original",
+          stripePaymentIntentId: "pi_original",
+          amountTotal: source.total,
+          currency: source.currency,
+        });
+      }
+      if (sourceStatus === "void") {
+        await invoices.voidInvoice(db, source.id, user.id);
+      }
+
+      const original = (await invoices.getInvoice(db, source.id, user.id))!;
+      expect(original.status).toBe(sourceStatus);
+      const duplicate = await invoices.duplicateInvoice(db, source.id, user.id);
+
+      expect(duplicate).toMatchObject({
+        user_id: user.id,
+        invoice_number: "INV-0002",
+        status: "draft",
+        client_name: source.client_name,
+        client_email: source.client_email,
+        client_address: source.client_address,
+        currency: source.currency,
+        notes: source.notes,
+        due_date: source.due_date,
+        subtotal: source.subtotal,
+        tax_amount: source.tax_amount,
+        total: source.total,
+        issued_at: null,
+        paid_at: null,
+        stripe_session_id: null,
+        stripe_payment_intent_id: null,
+        stripe_connection_id: null,
+        stripe_account_id: null,
+        stripe_livemode: null,
+        stripe_charge_scope: null,
+        stripe_checkout_attempt: 0,
+        stripe_void_pending: false,
+      });
+      expect(duplicate.id).not.toBe(source.id);
+      expect(duplicate.pay_token).not.toBe(source.pay_token);
+
+      const lineItemDetails = (items: typeof original.line_items) =>
+        items.map(({ description, quantity, unit_price, line_total, position }) => ({
+          description,
+          quantity,
+          unit_price,
+          line_total,
+          position,
+        }));
+      expect(lineItemDetails(duplicate.line_items)).toEqual(
+        lineItemDetails(original.line_items),
+      );
+      expect(duplicate.line_items.map(({ id }) => id)).not.toEqual(
+        original.line_items.map(({ id }) => id),
+      );
+      expect(await invoices.getInvoice(db, source.id, user.id)).toEqual(original);
+    },
+  );
+
+  it("does not duplicate an invoice owned by another user", async () => {
+    const db = createDb(env.DB);
+    const owner = await createTestUser(db, "owner@test.com");
+    const otherUser = await createTestUser(db, "other@test.com");
+    const source = await invoices.createDraftInvoice(db, {
+      userId: owner.id,
+      ...baseInvoice,
+    });
+
+    await expect(
+      invoices.duplicateInvoice(db, source.id, otherUser.id),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect((await invoices.listInvoices(db, otherUser.id)).items).toHaveLength(0);
   });
 
   it("enforces draft -> sent transition only", async () => {

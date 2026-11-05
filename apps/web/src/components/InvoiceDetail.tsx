@@ -152,6 +152,30 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
     }
   };
 
+  const performDuplicate = async () => {
+    setActionPending(true);
+    try {
+      const { data, error } = await actions.invoice.duplicate({ id: invoiceId });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (!data) {
+        toast.error("We couldn't duplicate this invoice. Please try again.");
+        return;
+      }
+      navigateWithFlashToast(
+        `/invoices/${data.id}`,
+        "success",
+        `${data.invoice_number} duplicated as a draft`,
+      );
+    } catch {
+      toast.error("We couldn't duplicate this invoice. Please try again.");
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   const requestDelete = () => {
     setConfirm({
       title: "Delete invoice?",
@@ -231,6 +255,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            disabled={actionPending}
+            onClick={performDuplicate}
+            className="w-full sm:w-auto"
+          >
+            {actionPending ? "Working..." : "Duplicate"}
+          </Button>
           <Button variant="outline" asChild className="w-full sm:w-auto">
             <a
               href={`/api/invoices/${invoiceId}/pdf`}

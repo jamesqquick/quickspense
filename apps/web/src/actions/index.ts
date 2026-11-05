@@ -4,6 +4,7 @@ import {
   ConflictError,
   createDb,
   DomainError,
+  invoices,
   payInvoiceSchema,
   StripeConnectionOperationConflictError,
   stripeConnections,
@@ -34,6 +35,39 @@ function toActionError(error: unknown): ActionError {
 
 export const server = {
   invoice: {
+    duplicate: defineAction({
+      accept: "json",
+      input: z.object({ id: z.string().uuid() }).strict(),
+      handler: async ({ id }, { locals }) => {
+        if (!locals.user) {
+          throw new ActionError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in.",
+          });
+        }
+
+        try {
+          const invoice = await invoices.duplicateInvoice(
+            createDb(locals.runtime.env.DB),
+            id,
+            locals.user.id,
+          );
+          return { id: invoice.id, invoice_number: invoice.invoice_number };
+        } catch (error) {
+          if (error instanceof DomainError && error.statusCode === 404) {
+            throw new ActionError({
+              code: "NOT_FOUND",
+              message: "Invoice not found.",
+            });
+          }
+          locals.logger.error("Invoice duplicate failed");
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't duplicate this invoice. Please try again.",
+          });
+        }
+      },
+    }),
     void: defineAction({
       accept: "json",
       input: z.object({ id: z.string().uuid() }).strict(),
