@@ -578,6 +578,39 @@ describe("stripe connections", () => {
     ]);
   });
 
+  it("releases an exact rejected callback and allows a fresh authorization", async () => {
+    const db = createDb(env.DB);
+    const userId = await createTestUser("rejected-oauth@test.com");
+    const input = { state: rawState("rejected-oauth"), userId, livemode: false };
+    await stripeConnection.createOAuthState(db, input);
+    const consumed = await stripeConnection.consumeOAuthState(db, input);
+    const completion = { stateHash: consumed.state_hash, userId, operationId: consumed.operation_id! };
+
+    await expect(stripeConnection.completeRejectedOAuthState(db, { ...completion, userId: "other_user" })).resolves.toBe(false);
+    await expect(stripeConnection.completeRejectedOAuthState(db, { ...completion, operationId: "other_operation" })).resolves.toBe(false);
+    await expect(stripeConnection.completeRejectedOAuthState(db, completion)).resolves.toBe(true);
+    await expect(stripeConnection.getCurrentAuthorizedOperation(db, userId)).resolves.toBeNull();
+    await expect(stripeConnection.createOAuthState(db, { ...input, state: rawState("fresh-oauth") })).resolves.toMatchObject({
+      consumed_at: null, completed_at: null,
+    });
+    await expect(stripeConnection.consumeOAuthState(db, input)).rejects.toBeInstanceOf(InvalidStripeConnectStateError);
+  });
+
+  it("preserves an account authorization that was recorded before rejection cleanup", async () => {
+    const db = createDb(env.DB);
+    const userId = await createTestUser("authorized-before-cleanup@test.com");
+    const state = await createAuthorizedOperation(db, userId, "acct_preserved");
+
+    await expect(stripeConnection.completeRejectedOAuthState(db, {
+      stateHash: state.state_hash, userId, operationId: state.operation_id!,
+    })).resolves.toBe(false);
+    await expect(stripeConnection.getCurrentAuthorizedOperation(db, userId)).resolves.toMatchObject({
+      phase: "authorized", stripeAccountId: "acct_preserved",
+    });
+    const [stored] = await db.select().from(stripeConnectStates).where(eq(stripeConnectStates.state_hash, state.state_hash));
+    expect(stored.completed_at).toBeNull();
+  });
+
   it("does not touch another operation when callback lock validation fails", async () => {
     const db = createDb(env.DB);
     const userId = await createTestUser("invalid-callback-operation@test.com");

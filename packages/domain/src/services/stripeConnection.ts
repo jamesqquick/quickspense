@@ -619,6 +619,63 @@ export async function completeOAuthState(
   return states.length === 1;
 }
 
+export async function completeRejectedOAuthState(
+  db: Database,
+  input: CompleteOAuthStateInput,
+  now = new Date(),
+): Promise<boolean> {
+  const completedAt = now.toISOString();
+  const [states, operations] = await db.batch([
+    db
+      .update(stripeConnectStates)
+      .set({ completed_at: completedAt })
+      .where(
+        and(
+          eq(stripeConnectStates.state_hash, input.stateHash),
+          eq(stripeConnectStates.user_id, input.userId),
+          eq(stripeConnectStates.operation_id, input.operationId),
+          isNotNull(stripeConnectStates.consumed_at),
+          isNull(stripeConnectStates.completed_at),
+          sql`EXISTS (
+            SELECT 1 FROM ${stripeConnectionOperations}
+            WHERE ${stripeConnectionOperations.id} = ${input.operationId}
+              AND ${stripeConnectionOperations.user_id} = ${input.userId}
+              AND ${stripeConnectionOperations.kind} = 'connect'
+              AND ${stripeConnectionOperations.phase} = 'authorizing'
+              AND ${stripeConnectionOperations.stripe_account_id} IS NULL
+          )`,
+        ),
+      )
+      .returning({ state_hash: stripeConnectStates.state_hash }),
+    db
+      .delete(stripeConnectionOperations)
+      .where(
+        and(
+          eq(stripeConnectionOperations.id, input.operationId),
+          eq(stripeConnectionOperations.user_id, input.userId),
+          eq(stripeConnectionOperations.kind, "connect"),
+          eq(stripeConnectionOperations.phase, "authorizing"),
+          isNull(stripeConnectionOperations.stripe_account_id),
+          sql`EXISTS (
+            SELECT 1 FROM ${stripeConnectStates}
+            WHERE ${stripeConnectStates.state_hash} = ${input.stateHash}
+              AND ${stripeConnectStates.user_id} = ${input.userId}
+              AND ${stripeConnectStates.operation_id} = ${input.operationId}
+              AND ${stripeConnectStates.completed_at} = ${completedAt}
+          )`,
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${stripeConnectStates}
+            WHERE ${stripeConnectStates.operation_id} = ${input.operationId}
+              AND ${stripeConnectStates.completed_at} IS NULL
+          )`,
+        ),
+      )
+      .returning({ id: stripeConnectionOperations.id }),
+  ]);
+
+  return states.length === 1 && operations.length === 1;
+}
+
 export async function recordAuthorizedAccount(
   db: Database,
   input: RecordAuthorizedAccountInput,

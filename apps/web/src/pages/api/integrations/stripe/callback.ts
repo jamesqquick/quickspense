@@ -5,7 +5,12 @@ import {
   stripeConnections,
   type StripeConnectState,
 } from "@quickspense/domain";
-import { createStripeClient, createStripeOAuthClient } from "@/lib/stripe";
+import {
+  createStripeClient,
+  createStripeOAuthClient,
+  getStripeOAuthErrorDetails,
+  isStripeOAuthTokenRejection,
+} from "@/lib/stripe";
 import {
   classifyStripeConnectError,
   createAuthorizedAccountObservation,
@@ -105,13 +110,44 @@ export const GET: APIRoute = async ({ locals, request }) => {
         return redirectToSettings(request.url, "oauth_invalid");
       }
 
-      const oauthAccount = normalizeStripeOAuthToken(
-        await oauthStripe.oauth.token({
+      let tokenResponse: Awaited<ReturnType<typeof oauthStripe.oauth.token>>;
+      try {
+        tokenResponse = await oauthStripe.oauth.token({
           grant_type: "authorization_code",
           code,
-        }),
-        livemode,
-      );
+        });
+      } catch (error) {
+        const rejected = isStripeOAuthTokenRejection(error);
+        const result = rejected && error.type === "StripePermissionError"
+          ? "configuration"
+          : callbackResultForError(error);
+        locals.logger.error("Stripe OAuth token exchange failed", {
+          operationId: consumedState.operation_id,
+          livemode,
+          keyType: env.STRIPE_SECRET_KEY.startsWith("rk_") ? "restricted" : "standard",
+          result,
+          outcome: rejected ? "rejected" : "unknown",
+          ...getStripeOAuthErrorDetails(error, [env.STRIPE_SECRET_KEY, code, state]),
+        });
+        if (rejected) {
+          try {
+            const completed = await stripeConnections.completeRejectedOAuthState(db, {
+              stateHash: consumedState.state_hash,
+              userId: user.id,
+              operationId: consumedState.operation_id!,
+            });
+            if (!completed) return redirectToSettings(request.url, "authorization_unconfirmed");
+          } catch {
+            locals.logger.error("Rejected Stripe authorization cleanup failed", {
+              operationId: consumedState.operation_id,
+            });
+            return redirectToSettings(request.url, "authorization_unconfirmed");
+          }
+        }
+        return redirectToSettings(request.url, result);
+      }
+
+      const oauthAccount = normalizeStripeOAuthToken(tokenResponse, livemode);
       stripeAccountId = oauthAccount.stripeAccountId;
       let recorded = false;
       for (let attempt = 0; attempt < 2; attempt += 1) {

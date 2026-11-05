@@ -223,6 +223,10 @@ Use Stripe records to recover the original session and reconcile its status.
 Payments on void invoices and different-session duplicate successes are recorded
 as exceptions in `stripe_webhook_events` for operator reconciliation.
 
+Confirmed OAuth token rejections release the pending attempt so Settings can
+start a fresh authorization. Server logs include redacted Stripe error details
+to diagnose credential and permission failures.
+
 If OAuth succeeded but local persistence failed, use **Retry Stripe connection**
 in Settings. If the token exchange response was lost and the account is unknown,
 the operation stays blocked. A user's assertion that they revoked access is not

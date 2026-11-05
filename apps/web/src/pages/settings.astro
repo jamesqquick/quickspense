@@ -83,6 +83,7 @@ if (persistedConnection) {
     stripeConnection = {
       id: status.id,
       stripe_account_suffix: status.stripe_account_id.slice(-4),
+      stripe_dashboard_url: `https://dashboard.stripe.com/${encodeURIComponent(status.stripe_account_id)}/`,
       livemode: status.livemode,
       charges_enabled: status.charges_enabled,
       payouts_enabled: status.payouts_enabled,

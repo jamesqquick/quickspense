@@ -100,6 +100,43 @@ export function createStripeOAuthClient(env: StripeClientEnv): Stripe {
   return createClient(env, STRIPE_OAUTH_MAX_NETWORK_RETRIES, STRIPE_OAUTH_TIMEOUT_MS, new StripeOAuthHttpClient());
 }
 
+export function isStripeOAuthTokenRejection(error: unknown): error is InstanceType<typeof Stripe.errors.StripeError> {
+  if (!(error instanceof Stripe.errors.StripeError) || ![400, 401, 403].includes(error.statusCode ?? 0)) {
+    return false;
+  }
+  return [
+    Stripe.errors.StripeInvalidClientError,
+    Stripe.errors.StripeAuthenticationError,
+    Stripe.errors.StripePermissionError,
+    Stripe.errors.StripeInvalidGrantError,
+    Stripe.errors.StripeOAuthInvalidRequestError,
+    Stripe.errors.StripeInvalidScopeError,
+    Stripe.errors.StripeUnsupportedGrantTypeError,
+    Stripe.errors.StripeUnsupportedResponseTypeError,
+  ].some((ErrorType) => error instanceof ErrorType);
+}
+
+export function getStripeOAuthErrorDetails(error: unknown, sensitiveValues: string[]) {
+  if (!(error instanceof Stripe.errors.StripeError)) {
+    return { stripeErrorType: "unknown" };
+  }
+  const redact = (value: string | undefined): string | undefined => {
+    if (!value) return undefined;
+    for (const secret of sensitiveValues) {
+      if (secret) value = value.replaceAll(secret, "[redacted]");
+    }
+    return value.replace(/\b(?:[srp]k_(?:live|test)_|ac_|rt_)[\w*.-]+/g, "[redacted]").slice(0, 500);
+  };
+
+  return {
+    stripeErrorType: redact(error.type),
+    stripeErrorCode: redact(error.code ?? error.rawType),
+    stripeStatusCode: error.statusCode,
+    stripeRequestId: redact(error.requestId),
+    stripeErrorMessage: redact(error.message),
+  };
+}
+
 export function getGuardedStripeLivemode(env: StripeClientEnv): boolean {
   createStripeClient(env);
   return deriveStripeLivemode(env.STRIPE_SECRET_KEY!);
