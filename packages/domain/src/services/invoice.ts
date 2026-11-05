@@ -231,6 +231,31 @@ export async function getInvoice(
   };
 }
 
+export async function duplicateInvoice(
+  db: Database,
+  invoiceId: string,
+  userId: string,
+): Promise<InvoiceWithLineItems> {
+  const source = await getInvoice(db, invoiceId, userId);
+  if (!source) throw new NotFoundError("Invoice", invoiceId);
+
+  return createDraftInvoice(db, {
+    userId,
+    currency: source.currency,
+    client_name: source.client_name,
+    client_email: source.client_email,
+    client_address: source.client_address,
+    notes: source.notes,
+    due_date: source.due_date,
+    tax_amount: source.tax_amount,
+    line_items: source.line_items.map(({ description, quantity, unit_price }) => ({
+      description,
+      quantity,
+      unit_price,
+    })),
+  });
+}
+
 export async function getInvoiceByPayToken(
   db: Database,
   token: string,
