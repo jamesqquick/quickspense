@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { actions } from "astro:actions";
+import { ChevronDown, Download, Pencil, Send, Trash2 } from "lucide-react";
 import type { BusinessProfile, InvoiceWithLineItems } from "@quickspense/domain";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { navigateWithFlashToast } from "@/lib/flashToast";
 import { formatInvoiceMoney } from "@/lib/invoiceMoney";
 import { getApiErrorMessage } from "@/lib/apiError";
@@ -216,6 +224,8 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   }
 
   const payUrl = `${window.location.origin}/pay/${invoice.pay_token}`;
+  const canDelete = invoice.status === "draft" || invoice.status === "void";
+  const canVoid = invoice.status === "sent";
 
   if (editing && invoice.status === "draft") {
     return (
@@ -254,80 +264,105 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
             {invoice.client_name} &middot; {invoice.client_email}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            disabled={actionPending}
-            onClick={performDuplicate}
-            className="w-full sm:w-auto"
-          >
-            {actionPending ? "Working..." : "Duplicate"}
-          </Button>
-          <Button variant="outline" asChild className="w-full sm:w-auto">
-            <a
-              href={`/api/invoices/${invoiceId}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download PDF
-            </a>
-          </Button>
+        <div
+          className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto"
+          role="group"
+          aria-label="Invoice actions"
+        >
           {invoice.status === "draft" && (
             <>
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setEditing(true)}
-                className="w-full sm:w-auto"
+                className="hidden w-full sm:inline-flex sm:w-auto"
               >
+                <Pencil aria-hidden="true" />
                 Edit
               </Button>
               <Button
+                type="button"
                 disabled={actionPending}
                 onClick={() => performAction(`/api/invoices/${invoiceId}/send`)}
                 className="w-full sm:w-auto"
               >
-                {actionPending ? "Sending..." : "Send invoice"}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={actionPending}
-                onClick={requestDelete}
-                className="w-full sm:w-auto hover:text-red-400"
-              >
-                Delete
+                <Send aria-hidden="true" />
+                {actionPending ? "Sending..." : "Send"}
               </Button>
             </>
           )}
           {invoice.status === "sent" && (
-            <>
-              <Button
-                variant="outline"
-                disabled={actionPending}
-                onClick={() => performAction(`/api/invoices/${invoiceId}/send`)}
-                className="w-full sm:w-auto"
-              >
-                {actionPending ? "Resending..." : "Resend email"}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={actionPending}
-                onClick={requestVoid}
-                className="w-full sm:w-auto hover:text-red-400"
-              >
-                Void
-              </Button>
-            </>
-          )}
-          {invoice.status === "void" && (
             <Button
-              variant="ghost"
+              type="button"
+              variant="outline"
               disabled={actionPending}
-              onClick={requestDelete}
-              className="w-full sm:w-auto hover:text-red-400"
+              onClick={() => performAction(`/api/invoices/${invoiceId}/send`)}
+              className="w-full sm:w-auto"
             >
-              Delete
+              <Send aria-hidden="true" />
+              {actionPending ? "Resending..." : "Resend email"}
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={actionPending}
+                className="w-full sm:w-auto"
+              >
+                More actions
+                <ChevronDown aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {invoice.status === "draft" && (
+                <DropdownMenuItem
+                  className="sm:hidden"
+                  onSelect={() => setEditing(true)}
+                >
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild>
+                <a
+                  href={`/api/invoices/${invoiceId}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Download aria-hidden="true" />
+                  Download PDF
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={actionPending}
+                onSelect={performDuplicate}
+              >
+                Duplicate
+              </DropdownMenuItem>
+              {(canDelete || canVoid) && <DropdownMenuSeparator />}
+              {canDelete && (
+                <DropdownMenuItem
+                  disabled={actionPending}
+                  className="text-red-400 focus:text-red-300"
+                  onSelect={requestDelete}
+                >
+                  <Trash2 aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+              {canVoid && (
+                <DropdownMenuItem
+                  disabled={actionPending}
+                  className="text-red-400 focus:text-red-300"
+                  onSelect={requestVoid}
+                >
+                  Void
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
